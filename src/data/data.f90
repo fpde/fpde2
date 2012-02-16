@@ -17,32 +17,32 @@ module data_module
                                 ! convention name_1, name_2, etc.
      logical :: evolved = .true.
      logical :: vector = .true.  ! if .false. then its a scalar
-     character(len=NAME_LEN) :: name = "" ! not named by default
+     character(len=FPDE_NAME_LEN) :: name = "" ! not named by default
   end type init_register
 
 
   type, public :: named_vector
      real, pointer :: value(:) => null()
-     character(len=NAME_LEN) :: name = "" ! not named by default
+     character(len=FPDE_NAME_LEN) :: name = "" ! not named by default
   end type named_vector
 
 
   type, public :: named_scalar
      real, pointer :: value => null()
-     character(len=NAME_LEN) :: name = "" ! not named by default
+     character(len=FPDE_NAME_LEN) :: name = "" ! not named by default
   end type named_scalar
 
 
   type, public, extends(named) :: data
      real, pointer, contiguous :: data_table(:) => null()
      real, pointer :: evolved(:) => null()
-     init_register :: init_table(MAX_REG) => null()
-     named_vector, pointer :: vec(:) => null()
-     named_scalar, pointer :: scal(:) => null()
+     type(init_register) :: init_table(MAX_REG)
+     type(named_vector), pointer :: vec(:) => null()
+     type(named_scalar), pointer :: scal(:) => null()
    contains
-     procedure :: add_vector
-     procedure :: add_scalar
-     procedure :: allocate
+     ! procedure :: add_vector
+     ! procedure :: add_scalar
+     ! procedure :: allocate
   end type data
 
 
