@@ -19,7 +19,7 @@ module logger_module
 
 
   type, public :: named
-     integer :: logfile_unit = 0 !if 0, log will write to logger%unit
+     integer :: logfile_unit = FPDE_STDOUT !if 0, log will write to logger%unit
      integer :: status = 0       !0 means OK!
      character(len=FPDE_NAME_LEN) :: name = "" !empty name should produce a warning
    contains
@@ -49,7 +49,7 @@ contains
       integer :: lvl
       logger%log_level = lvl
    end subroutine set_log_level
-   
+
 
 
  subroutine log(n, lvl, msg)
@@ -63,7 +63,7 @@ contains
     if ( n%logfile_unit == 0 ) then
        call get_new_logfile_unit( n%logfile_unit)
    end if
-  
+
     if( logger%log_level < lvl ) return
 
     select case(lvl)
@@ -81,7 +81,7 @@ contains
 
     call get_timestamp(timestamp)
 
-    write(text,'(A)') timestamp //  ": " // lvl_text // ": " // msg
+    write(text,'(A)') timestamp //  ": " // trim(n%name) // lvl_text // ": " // msg
 
     call logger%try_write( n%logfile_unit, trim(text), status )
 
@@ -104,13 +104,13 @@ contains
 
     if( .not. opened ) then
        print *, "ERROR: try_write was unable to write to a file named ", trim(name)
-       print *, text
+       print *, trim(text)
        status = FPDE_STATUS_ERROR
     else
        write( unit, *, iostat=iostat ) trim(text)
        if( iostat /= 0  ) then
           print *, "ERROR: try_write was unable to write to a file iostat=", iostat
-          print *, text
+          print *, trim(text)
           status = FPDE_STATUS_ERROR
        end if
     end if
@@ -132,7 +132,7 @@ contains
     else
        write(filename, '(A)') fn
     end if
-    
+
     open(newunit = unit,&
          file    = filename,  &
          form    = 'formatted', &
