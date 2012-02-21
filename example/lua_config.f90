@@ -3,52 +3,61 @@ program lua_config_test
   use flu_module
 
   type(flu) :: l
-  real :: x = 1
-  real, pointer :: tab(:)
-  integer :: n
+  real :: x1 = 1
+  real, pointer :: x(:), f(:)
+  integer :: i,n
   character(len=100) :: str = "", id = ""
-  character(len=5), target :: key1(3), key2(3), key3(1)
-  character(len=5), pointer :: key(:)
+  character(len=10) :: key(2) = ""
 
 
   call l%init()
 
-  call l%load_file("../test/test.lua")
+  call l%load_file("../example/test.lua")
 
-  key1 = ["b", "c", "d"]
-  key2 = ["p", "q", "r"]
-  key3 = ["table"]
+  key(1) = "solver"
 
-  key => key1
+  key(2) = "x1"
   id = l%array_to_key(key)
-  if( l%get(key, x) == 0 ) then
-     print *, trim(id)//"=", x
+  if( l%get(key, x1) == 0 ) then
+     print *, trim(id)//" = ", x1
   else
-     print *, "unable to read real ", l%array_to_key(key)
+     print *, "unable to read real ", trim(id)
   end if
 
-  key => key2
+  key(2) = "name"
   id = l%array_to_key(key)
   if( l%get(key, str) == 0 ) then
-     print *, trim(id)//"=", trim(str)
+     print *, trim(id)//" = ", trim(str)
   else
-     print *, "unable to read string ", l%array_to_key(key)
+     print *, "unable to read string ", trim(id)
   end if
 
-  key => key3
+  key(2) = "x"
   id = l%array_to_key(key)
   if( l%get_len(key, n) == 0 ) then
-     allocate(tab(n))
-     if( l%get(key, tab) == 0 ) then
-        print *, trim(id)//"=", tab
-     else
-        print *, "unable to read array ", l%array_to_key(key)
+     allocate(x(n))
+     if( l%get(key, x) /= 0 ) then
+        print *, "unable to read array ", trim(id)
      end if
   else
-     print *, "unable to read length of an array ", l%array_to_key(key)
+     print *, "unable to read length of an array ", trim(id)
   end if
 
-  ! print *, l%array_to_key(["p", "q", "r"])
+  key(2) = "f"
+  id = l%array_to_key(key)
+  if( l%get_len(key, n) == 0 ) then
+     allocate(f(n))
+     if( l%get(key, f) /= 0 ) then
+        print *, "unable to read array ", trim(id)
+     end if
+  else
+     print *, "unable to read length of an array ", trim(id)
+  end if
+
+  do i = 1, n
+     print *, x(i), f(i)
+  end do
+
 
   call l%free()
 
