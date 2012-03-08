@@ -6,16 +6,19 @@ module logger_module
 
   integer, public, parameter :: FPDE_NAME_LEN = 100
   integer, public, parameter :: FPDE_PATH_LEN = 1000
-  integer, public, parameter :: FPDE_MSG_LEN = 1000
-  integer, public, parameter :: FPDE_STDOUT = 5
+  integer, public, parameter :: FPDE_MSG_LEN  = 1000
+  ! Fortran and Unix file descriptors are equivalent
+  integer, public, parameter :: FPDE_STDOUT   = 6
+  integer, public, parameter :: FPDE_STDIN    = 5
+  integer, public, parameter :: FPDE_STDERR   = 0
 
 
+  !< fpde logger log levels idendtifiers
   integer, public, parameter ::&
-       FPDE_LOG_ERROR = 1,&
+       FPDE_LOG_ERROR   = 1,&
        FPDE_LOG_WARNING = 2,&
-       FPDE_LOG_INFO = 3,&
-       FPDE_LOG_DEBUG = 4
-
+       FPDE_LOG_INFO    = 3,&
+       FPDE_LOG_DEBUG   = 4
 
 
   type, public :: named
@@ -31,7 +34,7 @@ module logger_module
 
   type, private :: logger_singleton
      integer :: log_level = 1
-     character(len=FPDE_PATH_LEN) :: path = "log/"
+     character(len=FPDE_PATH_LEN) :: path = "log/" !@todo what if this dir do not exists?
    contains
      procedure :: try_write
   end type logger_singleton
@@ -60,9 +63,11 @@ contains
     character(len=10) :: lvl_text
     character(len=19) :: timestamp
 
+    ! @todo this if block is strange, since one might
+    ! to have logs in stderr
     if ( n%logfile_unit == 0 ) then
-       call get_new_logfile_unit( n%logfile_unit)
-   end if
+       call get_new_logfile_unit( n%logfile_unit )
+    end if
   
     if( logger%log_level < lvl ) return
 
@@ -99,6 +104,7 @@ contains
     logical :: opened
     character(len=*) :: text
     character(len=FPDE_PATH_LEN) :: name
+
 
     inquire(unit = unit, opened = opened, name = name )
 
