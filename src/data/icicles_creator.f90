@@ -61,7 +61,7 @@ contains
     type(icicles), pointer :: ic
     type(tentacle_register), pointer :: reg
     integer, intent(in) :: reg_range(2)
-    real, pointer, intent(in) :: vec(:)
+    real, target, intent(in) :: vec(:)
 
     type(named_vector), pointer :: v
     type(named_scalar), pointer :: s
