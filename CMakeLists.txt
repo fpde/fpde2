@@ -1,11 +1,14 @@
 # Main CMake config file for fpde2 project
-cmake_minimum_required(VERSION 2.8)
+# @todo move compiler selecting, flag settings stuff out of this file
+# @todo design a better test machine (which will select some predefined
+# types of tests for different files)
 
+cmake_minimum_required(VERSION 2.8)
 # project name and language
 project( fpde2 Fortran )
 # library name
 set(project_lib_name "${CMAKE_PROJECT_NAME}")
-# @todo add VERSION and SOVERSION in future
+# @todo add VERSION and SOVERSION of fpde2 (in future)
 message(STATUS "Building up ${CMAKE_PROJECT_NAME}")
 
 # selecting Fortran compiler
@@ -33,7 +36,7 @@ message(STATUS "Linker: ${CMAKE_LINKER}")
 
 # variables used in out of source build
 set( LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib )
-set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake )
+#set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake )
 # .mod files output directory (fortran specific)
 set( CMAKE_Fortran_MODULE_DIRECTORY ${LIBRARY_OUTPUT_PATH}/mod)
 # add the above path to include path
@@ -86,15 +89,15 @@ ENABLE_TESTING()
 foreach(bin ${tests_list})
   string(REPLACE ".f90" "" bin ${bin})
 
-  #add_test(NAME ${bin} COMMAND ${bin})
+  add_test(NAME ${bin} COMMAND ${bin}) # simple execution check
 
-  add_test(NAME ${bin}2
+  add_test(NAME ${bin}_compare
     COMMAND ${CMAKE_COMMAND}
     -DTEST_PROG=$<TARGET_FILE:${bin}>
     -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/test/${bin}_output.txt
     -DEXPECTED_FILE=${PROJECT_SOURCE_DIR}/test/${bin}_expected.txt
-    # -DSOURCEDIR=${PROJECT_SOURCE_DIR}/test # @todo this varaible should be set for given bin
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/config/runtest.cmake)
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/config/runtest.cmake
+    )
 
 endforeach(bin)
 

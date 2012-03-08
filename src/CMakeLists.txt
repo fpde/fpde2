@@ -18,6 +18,8 @@ add_library(project_lib_shared SHARED ${src_sources77} ${src_sources90})
 set_target_properties(project_lib_shared PROPERTIES OUTPUT_NAME ${project_lib_name} )
 
 # @todo
+# # static library can be generated directly from shared lib
+# # object (what about ipo?)
 # # set objects for static library
 # add_library(fpde2 STATIC ${src_sources77} ${src_sources90})
 

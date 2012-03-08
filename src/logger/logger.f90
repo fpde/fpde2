@@ -48,131 +48,130 @@ module logger_module
 
 contains
 
+
    subroutine set_log_level(lvl)
       integer :: lvl
       logger%log_level = lvl
    end subroutine set_log_level
-   
 
 
- subroutine log(n, lvl, msg)
-    class(named) :: n
-    integer :: lvl, status=FPDE_STATUS_OK
-    character(len=*) :: msg
-    character(len=FPDE_MSG_LEN) :: text
-    character(len=10) :: lvl_text
-    character(len=19) :: timestamp
+   subroutine log(n, lvl, msg)
+      class(named) :: n
+      integer :: lvl, status=FPDE_STATUS_OK
+      character(len=*) :: msg
+      character(len=FPDE_MSG_LEN) :: text
+      character(len=10) :: lvl_text
+      character(len=19) :: timestamp
 
-    ! @todo this if block is strange, since one might
-    ! to have logs in stderr
-    if ( n%logfile_unit == 0 ) then
-       call get_new_logfile_unit( n%logfile_unit )
-    end if
-  
-    if( logger%log_level < lvl ) return
+      ! @todo this if block is strange, since one might
+      ! to have logs in stderr
+      if ( n%logfile_unit == 0 ) then
+         call get_new_logfile_unit( n%logfile_unit )
+      end if
 
-    select case(lvl)
-    case (FPDE_LOG_ERROR)
-       lvl_text = "ERROR"
-    case (FPDE_LOG_WARNING)
-       lvl_text = "WARNING"
-    case (FPDE_LOG_INFO)
-       lvl_text = "INFO"
-    case (FPDE_LOG_DEBUG)
-       lvl_text = "DEBUG"
-    case default
-       lvl_text = "UNDEFINED"
-    end select
+      if( logger%log_level < lvl ) return
 
-    call get_timestamp(timestamp)
+      select case(lvl)
+      case (FPDE_LOG_ERROR)
+         lvl_text = "ERROR"
+      case (FPDE_LOG_WARNING)
+         lvl_text = "WARNING"
+      case (FPDE_LOG_INFO)
+         lvl_text = "INFO"
+      case (FPDE_LOG_DEBUG)
+         lvl_text = "DEBUG"
+      case default
+         lvl_text = "UNDEFINED"
+      end select
 
-    write(text,'(A)') timestamp //  ": " // lvl_text // ": " // msg
+      call get_timestamp(timestamp)
 
-    call logger%try_write( n%logfile_unit, trim(text), status )
+      write(text,'(A)') timestamp //  ": " // lvl_text // ": " // msg
 
-    if( status /= FPDE_STATUS_OK ) then
-       n%logfile_unit = FPDE_STDOUT
-    end if
+      call logger%try_write( n%logfile_unit, trim(text), status )
 
-  end subroutine log
+      if( status /= FPDE_STATUS_OK ) then
+         n%logfile_unit = FPDE_STDOUT
+      end if
 
-
-  subroutine try_write(l, unit, text, status)
-    class(logger_singleton) :: l
-    integer :: unit
-    integer :: iostat, status
-    logical :: opened
-    character(len=*) :: text
-    character(len=FPDE_PATH_LEN) :: name
+   end subroutine log
 
 
-    inquire(unit = unit, opened = opened, name = name )
+   subroutine try_write(l, unit, text, status)
+      class(logger_singleton) :: l
+      integer :: unit
+      integer :: iostat, status
+      logical :: opened
+      character(len=*) :: text
+      character(len=FPDE_PATH_LEN) :: name
 
-    if( .not. opened ) then
-       print *, "ERROR: try_write was unable to write to a file named ", trim(name)
-       print *, text
-       status = FPDE_STATUS_ERROR
-    else
-       write( unit, *, iostat=iostat ) trim(text)
-       if( iostat /= 0  ) then
-          print *, "ERROR: try_write was unable to write to a file iostat=", iostat
-          print *, text
-          status = FPDE_STATUS_ERROR
-       end if
-    end if
+      inquire(unit = unit, opened = opened, name = name )
 
-  end subroutine try_write
+      if( .not. opened ) then
+         print *, "ERROR: try_write was unable to write to a file named ", trim(name)
+         print *, text
+         status = FPDE_STATUS_ERROR
+      else
+         write( unit, *, iostat=iostat ) trim(text)
+         if( iostat /= 0  ) then
+            print *, "ERROR: try_write was unable to write to a file iostat=", iostat
+            print *, text
+            status = FPDE_STATUS_ERROR
+         end if
+      end if
 
-
-  subroutine get_new_logfile_unit(unit, fn)
-    integer :: unit
-    character(len=FPDE_PATH_LEN) :: filename
-    character(len=*), optional :: fn
-    character(len=19) :: timestamp
-    integer :: iostat
-
-
-    if(.not. present(fn)) then
-       call get_timestamp(timestamp)
-       write(filename, '(A)') trim(logger%path) // timestamp // ".log"
-    else
-       write(filename, '(A)') fn
-    end if
-    
-    open(newunit = unit,&
-         file    = filename,  &
-         form    = 'formatted', &
-         action  = 'write', &
-         ! access = 'direct', &
-         recl    = 10000, &
-         iostat = iostat, &
-         status  = 'replace')
-
-    if( iostat /= 0  ) then
-       print *, "ERROR: in logger: get_new_logfile_unit ioostat =", iostat, ". Fallback to STDOUT"
-       unit = FPDE_STDOUT
-       return
-    end if
-
-    if( unit == 0) then
-       print *, "ERROR: in logger: get_new_logfile_unit unit =", unit, ". Fallback to STDOUT"
-       unit = FPDE_STDOUT
-       return
-    end if
-
-  end subroutine get_new_logfile_unit
+   end subroutine try_write
 
 
-  subroutine get_timestamp(timestamp)
-    character(len=19) :: timestamp
-    character(len=8) :: date
-    character(len=10) :: time
+   subroutine get_new_logfile_unit(unit, fn)
+      integer :: unit
+      character(len=FPDE_PATH_LEN) :: filename
+      character(len=*), optional :: fn
+      character(len=19) :: timestamp
+      integer :: iostat
 
-    call date_and_time(date=date, time=time)
 
-    write(timestamp, '(3(A))') date, "-", time
+      if(.not. present(fn)) then
+         call get_timestamp(timestamp)
+         write(filename, '(A)') trim(logger%path) // timestamp // ".log"
+      else
+         write(filename, '(A)') fn
+      end if
 
-  end subroutine get_timestamp
+      open(newunit = unit,&
+           file    = filename,  &
+           form    = 'formatted', &
+           action  = 'write', &
+                                ! access = 'direct', &
+           recl    = 10000, &
+           iostat = iostat, &
+           status  = 'replace')
+
+      if( iostat /= 0  ) then
+         print *, "ERROR: in logger: get_new_logfile_unit ioostat =", iostat, ". Fallback to STDOUT"
+         unit = FPDE_STDOUT
+         return
+      end if
+
+      if( unit == 0) then
+         print *, "ERROR: in logger: get_new_logfile_unit unit =", unit, ". Fallback to STDOUT"
+         unit = FPDE_STDOUT
+         return
+      end if
+
+   end subroutine get_new_logfile_unit
+
+
+   subroutine get_timestamp(timestamp)
+      character(len=19) :: timestamp
+      character(len=8) :: date
+      character(len=10) :: time
+
+      call date_and_time(date=date, time=time)
+
+      write(timestamp, '(3(A))') date, "-", time
+
+   end subroutine get_timestamp
 
 
 end module logger_module
