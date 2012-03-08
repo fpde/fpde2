@@ -29,7 +29,6 @@ program lua_config_test
   end if
 
   key(2) = "x"
-  id = l%array_to_key(key)
   if( l%get_len(key, n) == 0 ) then
      allocate(x(n))
      if( l%get(key, x) == 0 ) then
@@ -37,7 +36,6 @@ program lua_config_test
   end if
 
   key(2) = "f"
-  id = l%array_to_key(key)
   if( l%get_len(key, n) == 0 ) then
      allocate(f(n))
      if( l%get(key, f) == 0 ) then
@@ -48,9 +46,18 @@ program lua_config_test
      print *, x(i), f(i)
   end do
 
+  if( l%get_len(["solver","abc", "y", "z"], n) == 0 ) then
+     print *, n
+     deallocate(x)
+     allocate(x(n))
+     if( l%get(["solver","abc", "y", "z"], x) == 0 ) then
+     end if
+  end if
+
+  do i = 1, n
+     print *, x(i)
+  end do
 
   call l%free()
 
 end program lua_config_test
-
-

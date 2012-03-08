@@ -16,13 +16,41 @@ for i=1, nx do
 end
 
 solver = {
+   type = "elliptic",
    name = "one",
    nx = nx,
    x0 = x0,
    x1 = x1,
    x = x,
+   abc = {y = {z = {1,2}}},
    f = f,
    nx = nx,
-   evolved = {"u", "v"}
-   -- nf = #evolved		-- number of evolved functions
+   scalars = {t = 1., "dt", "mod1"}
+   vectors = {"u", "v"}
+   modules = {
+      {
+	 type="box",
+	 name="box",
+	 param1 = "1",
+	 u = "u",
+	 v = "v"
+	 s = "mod1"
+      },
+      {
+	 type="box",
+	 name="box",
+	 param1 = "1",
+	 var = "mod1"
+      },
+      {
+	 type="write",
+	 name="write1",
+	 draw = {"t","u"}
+      }
+   }
 }
+
+
+
+solver.nf = #solver.evolved
+print(solver.nf)
