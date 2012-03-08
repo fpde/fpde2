@@ -13,14 +13,16 @@
 module flu_module
   use iso_c_binding !, only: c_ptr, c_null_ptr, c_null_char, c_char, c_int
   use flu_primitives_module
+  use flu_func_module
+  use flu_meta_module
   use logger_module
 
   private
 
 
-  ! this class takes care of the lua VM
+  !> this class takes care of the lua VM
   type, public, extends(named) :: flu
-     type(c_ptr), private :: lstate = c_null_ptr
+     type(c_ptr) :: lstate = c_null_ptr
    contains
      procedure :: init
      procedure :: free
@@ -72,7 +74,7 @@ contains
   end function get_recursively
 
 
-
+  !> pushes the value of the key f to the top of the stack
   function push_by_key(f,id) result(r)
     class(flu) :: f
     character(len=*), intent(in) :: id(:)

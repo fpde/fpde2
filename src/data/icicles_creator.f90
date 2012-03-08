@@ -1,4 +1,4 @@
-module icicles_creator_module
+module tentacle_module
 
   use constants_module
   use icicles_module
@@ -6,39 +6,45 @@ module icicles_creator_module
 
   integer, parameter, private :: MAX_REG = 1000
 
-  type :: register
+  private
+
+  type :: tentacle_register
      integer :: len = 1
      character(len=NAME_LEN) :: name = ""
-     logical :: evolved = .false.
-  end type register
+  end type tentacle_register
 
-
-  type, public, extends(named) :: icicles_creator
-     type(register) :: reg(MAX_REG)
+  !> regenerates the pointers of all named_vectors and named_scalars
+  !> in icicles based on the tentacle_register
+  type, public, extends(named) :: magical_tentacle
+     !> register table
+     type(tentacle_register) :: reg(MAX_REG)
+     !> number of registers already added
      integer :: n_reg = 0
    contains
      procedure :: add
      procedure :: create_icicles
-  end type icicles_creator
-
+     procedure :: set_pointers
+  end type magical_tentacle
 
 contains
 
-  subroutine add(ic, name, evolved, len)
-    class(icicles_creator) :: ic
+  subroutine add(ic, name, len)
+    class(magical_tentacle) :: ic
     character(len=*) :: name
-    logical, optional :: evolved
     integer, optional :: len
 
     integer :: n
-    type(register) :: reg
+    type(tentacle_register) :: reg
 
     n = ic%n_reg
-
-    if(present(evolved)) then
-       reg%evolved=evolved
+    if( n == MAX_REG ) then
+       call ic%log(FPDE_LOG_ERROR, "Magical register is full")
+       return
     end if
 
+    reg%name = trim(name)
+
+    ! default len is set in tentacle_register
     if(present(len)) then
        reg%len=len
     end if
@@ -50,22 +56,53 @@ contains
 
   end subroutine add
 
-  subroutine create_icicles(ic, ics)
-    class(icicles_creator), target :: ic
-    class(icicles), pointer, intent(out) :: ics
+  subroutine set_pointers(ten, ic, reg_range, vec)
+    class(magical_tentacle), target :: ten
+    type(icicles), pointer :: ic
+    type(tentacle_register), pointer :: reg
+    integer, intent(in) :: reg_range(2)
+    real, pointer, intent(in) :: vec(:)
+
+    type(named_vector), pointer :: v
+    type(named_scalar), pointer :: s
+    integer :: len, i
+
+    ! this points to the nearest not assigned space in ics%data
+    len = 1
+
+    do i = reg_range(1), reg_range(2)
+       reg => ten%reg(i)
+
+       if( len+reg%len-1 > size(vec) ) then
+          ! @todo log error, too small vec
+          return
+
+       else if( ic%get(reg%name,v) == 0 ) then
+          v%val(1:reg%len) => vec(len:reg%len+len-1)
+          len = len + reg%len
+
+       else if( ic%get(reg%name,s) == 0) then
+          s%val => vec(len)
+          len = len + 1
+       end if
+
+    end do
+  end subroutine set_pointers
+
+
+  subroutine create_icicles(ten, ics)
+    class(magical_tentacle), target :: ten
+    type(icicles), pointer, intent(out) :: ics
 
     integer :: n_reg,i,l
-    integer :: len = 0, ev_len = 0, v_len = 0, s_len = 0
-    class(register), pointer :: reg
-    n_reg = ic%n_reg
+    integer :: len = 0, v_len = 0, s_len = 0
+    class(tentacle_register), pointer :: reg
+    n_reg = ten%n_reg
 
     ! @todo reduce the loop using sum()
     do i = 1, n_reg
-       reg => ic%reg(i)
+       reg => ten%reg(i)
        len = len + reg%len
-       if(reg%evolved) then
-          ev_len=ev_len+reg%len
-       end if
        if(reg%len == 1) then
           s_len = s_len + 1
        else
@@ -77,55 +114,23 @@ contains
     allocate(ics%data(len))
     allocate(ics%vectors(v_len))
     allocate(ics%scalars(s_len))
-    ics%evolved(1:ev_len) => ics%data(len-ev_len:len)
 
-    ! those now point to the next not initialized element of vectors
-    ! and scalars respectively
-    v_len = 1
     s_len = 1
-    ! this points to the nearest not assigned space in ics%evolved
-    ev_len = 1
-    ! this points to the nearest not assigned space in ics%data
-    len = 1
+    v_len = 1
 
     do i = 1, n_reg
-       reg => ic%reg(i)
-
-       if(reg%evolved .and. reg%len == 1) then
-          ! evolved scalar
-          ics%scalars(s_len)%val => ics%evolved(ev_len)
-          ics%scalars(s_len)%name = reg%name
-          ev_len=ev_len+1       !scalar, one field forward
-          s_len=s_len+1
-          call ic%log(FPDE_LOG_DEBUG,&
-               "Added evolved scalar ["//trim(reg%name)//"]")
-
-       else if(reg%evolved) then
-          ! evolved vector
-          l = reg%len
-          ics%vectors(v_len)%val(1:l) => ics%evolved(ev_len:ev_len+l)
-          ics%vectors(v_len)%name = reg%name
-          len=len+l             !vector, l fields forward
-          v_len=v_len+1
-          call ic%log(FPDE_LOG_DEBUG,&
-               "Added evolved vector ["//trim(reg%name)//"]")
-
-       else if(reg%len == 1) then
-          ! scalar
-          ics%scalars(s_len)%val => ics%data(len)
-          ics%scalars(s_len)%name = reg%name
-          len=len+1             !scalar, one field forward
-          s_len=s_len+1
-          call ic%log(FPDE_LOG_DEBUG,&
-               "Added evolved scalar ["//trim(reg%name)//"]")
+       reg => ten%reg(i)
+       if( reg%len == 1) then
+          ics%scalars(s_len)%name = trim(reg%name)
+          s_len = s_len+1
        else
-          ! vector
+          ics%vectors(v_len)%name = trim(reg%name)
+          v_len = v_len+1
        end if
     end do
 
-
+    call ten%set_pointers(ics, [1,n_reg], ics%data)
 
   end subroutine create_icicles
 
-
-end module icicles_creator_module
+end module tentacle_module

@@ -46,11 +46,14 @@ program lua_config_test
      print *, x(i), f(i)
   end do
 
-  if( l%get_len(["solver","abc", "y", "z"], n) == 0 ) then
+  if( l%get_len(&
+       [character(len=10)::"solver","abc", "y", "z"],&
+       n) == 0 ) then
      print *, n
      deallocate(x)
      allocate(x(n))
-     if( l%get(["solver","abc", "y", "z"], x) == 0 ) then
+     if( l%get([character(len=10)::"solver","abc", "y", "z"], &
+          x) == 0 ) then
      end if
   end if
 
