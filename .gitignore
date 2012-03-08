@@ -1,6 +1,2 @@
-test/*
 build/*
-misc/*
-CMakeLists.txt
-src/CMakeLists.txt
-Doxyfile.in
+*~
