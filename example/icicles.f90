@@ -1,9 +1,23 @@
+!>
+!! @file   icicles.f90
+!! @author Pawel Biernat <pawel.biernat@gmail.com>
+!! @date   Thu Mar  8 21:40:28 2012
+!!
+!! @brief  example of icicles
+!!
+!! @todo try to do some caching of vectors and scalars positions in
+!! order to use them with t%set_pointers, now they are looked up using
+!! icicles%get.
+!!
+!! @todo replace [1,n] with sequence 1,n in t%set_pointers?
+!!
+
 program icicles_prog
   use icicles_module
   use tentacle_module
 
   integer :: i,j
-  integer ::  n = 4
+  integer ::  n = 40
   character(len=10) :: str
 
   type(named_vector), pointer :: v
@@ -16,7 +30,7 @@ program icicles_prog
 
   ! create n registry entries, each with len=i and name=i
   do i = 1, n
-     write(str,'(i1)') i
+     write(str,'(i4)') i
      str=trim(adjustl(str))
      call t%add(str,i)
   end do
@@ -28,7 +42,7 @@ program icicles_prog
   print *, ic%data
 
   do i = 1, n
-     write(str,'(i1)') i
+     write(str,'(i4)') i
      str=trim(adjustl(str))
      ! obtain vector 'i' from icicles and set it to i
      if( ic%get(str,v) == 0 ) then
