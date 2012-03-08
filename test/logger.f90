@@ -7,7 +7,7 @@ program logger_test
    print *, "Current logger level: ", logger%log_level
    print *, "Current logger path: ", "'"//trim(logger%path)//"'"
 
-   call set_log_level(FPDE_LOG_DEBUG)
+   call set_log_level(FPDE_LOG_ERROR)
    print *, "Current logger level: ", logger%log_level
 
    ! call get_new_logfile_unit(o%logfile_unit,"log.log")

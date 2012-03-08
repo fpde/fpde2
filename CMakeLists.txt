@@ -64,7 +64,7 @@ add_subdirectory(src)
 # building tests target
 # search for source files in ./test
 file(GLOB tests_list RELATIVE ${PROJECT_SOURCE_DIR}/test ${PROJECT_SOURCE_DIR}/test/*.f90)
-# create targets for each file from ./test
+# create targets for each file from ./test/
 foreach(bin ${tests_list})
   string(REPLACE ".f90" "" bin ${bin})
   add_executable(${bin} ${PROJECT_SOURCE_DIR}/test/${bin}.f90)
@@ -85,16 +85,17 @@ endforeach(bin)
 ENABLE_TESTING()
 foreach(bin ${tests_list})
   string(REPLACE ".f90" "" bin ${bin})
-  add_test(NAME ${bin} COMMAND ${bin})
+
+  #add_test(NAME ${bin} COMMAND ${bin})
+
+  add_test(NAME ${bin}2
+    COMMAND ${CMAKE_COMMAND}
+    -DTEST_PROG=$<TARGET_FILE:${bin}>
+    -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/test/${bin}_output.txt
+    -DEXPECTED_FILE=${PROJECT_SOURCE_DIR}/test/${bin}_expected.txt
+    # -DSOURCEDIR=${PROJECT_SOURCE_DIR}/test # @todo this varaible should be set for given bin
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/config/runtest.cmake)
+
 endforeach(bin)
 
-# add a target to generate API documentation with Doxygen
-find_package(Doxygen)
-if(DOXYGEN_FOUND)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-  add_custom_target(doc
-    ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Generating API documentation with Doxygen" VERBATIM
-    )
-endif(DOXYGEN_FOUND)
+include(${CMAKE_CURRENT_SOURCE_DIR}/config/doxygen.cmake)
