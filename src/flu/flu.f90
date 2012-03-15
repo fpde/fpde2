@@ -37,11 +37,7 @@ module flu_module
      generic :: get => get_real, get_character, get_real_array
   end type flu
 
-
-
 contains
-
-
 
 !!!!!!!! Some high level lua calls
 

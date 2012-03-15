@@ -27,13 +27,14 @@ module flu_primitives_module
      type(c_ptr) :: ptr
   end type lua_userdata_ptr
 
+  !> assumed size of userdata, @todo check if 32 bytes is enough
+  integer(c_int), parameter :: LUA_USERDATA_PTR_SIZE = 100
 
   abstract interface
      !> abstract interface to the type of lua_CFunction
-     function lua_cfunction(lstate) bind(c)
+     integer(c_int) function lua_cfunction(l) bind(c)
        use iso_c_binding, only: c_int, c_ptr
-       type(c_ptr), value :: lstate
-       integer(c_int) :: lua_cfunction
+       type(c_ptr), value :: l
      end function lua_cfunction
 
   end interface
@@ -87,11 +88,23 @@ module flu_primitives_module
        character(kind=c_char) :: name(*)
      end subroutine lua_getglobal
 
+     subroutine lua_getlocal(lstate,name) bind(C,name="lua_getlocal")
+       use iso_c_binding, only: c_ptr, c_char, c_int
+       type(c_ptr), value :: lstate
+       character(kind=c_char) :: name(*)
+     end subroutine lua_getlocal
+
      subroutine lua_setglobal(lstate,name) bind(C,name="lua_setglobal")
        use iso_c_binding, only: c_ptr, c_char, c_int
        type(c_ptr), value :: lstate
        character(kind=c_char) :: name(*)
      end subroutine lua_setglobal
+
+     subroutine lua_setlocal(lstate,name) bind(C,name="lua_setlocal")
+       use iso_c_binding, only: c_ptr, c_char, c_int
+       type(c_ptr), value :: lstate
+       character(kind=c_char) :: name(*)
+     end subroutine lua_setlocal
 
      function lua_tolstring(lstate, index, len) bind(C,name="lua_tolstring")
        use iso_c_binding, only: c_ptr, c_char, c_int, c_size_t
