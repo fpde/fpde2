@@ -32,6 +32,5 @@ foreach(bin ${tests_list})
       -DEXPECTED_FILE=${PROJECT_SOURCE_DIR}/${bin}.txt
       -P ${CMAKE_CURRENT_SOURCE_DIR}/CompareTest.cmake
       )
-    
   endif( )
 endforeach(bin)

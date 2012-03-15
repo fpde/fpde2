@@ -13,7 +13,10 @@ message(STATUS "Building up ${CMAKE_PROJECT_NAME}")
 
 # selecting Fortran compiler
 include(CMakeForceCompiler)
-cmake_force_fortran_compiler(ifort "Intel")
+# commented since this instruction does not seems
+# to work with cmake 2.8
+# cmake_force_fortran_compiler(ifort "Intel")
+
 # the tools for creating libraries 
 # selecting archiver
 find_program(xiar xiar)
@@ -58,11 +61,16 @@ set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
 set(Fortran90_OFLAGS "-O3")
 set(Fortran90_PFLAGS "-fp-model strict -real-size 128 -integer-size 64")
 
+SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 # set external libraries required by this project
-set(external_libs "")
+# set(external_libs "-llua5.2")
+find_package(LUA REQUIRED)
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)
+
+# subdirectory with examples
+add_subdirectory(example)
 
 # subdirectory with tests
 add_subdirectory(test)
