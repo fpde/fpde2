@@ -64,41 +64,9 @@ set(external_libs "")
 # add a subdirectory with source files for the project
 add_subdirectory(src)
 
-# building tests target
-# search for source files in ./test
-file(GLOB tests_list RELATIVE ${PROJECT_SOURCE_DIR}/test ${PROJECT_SOURCE_DIR}/test/*.f90)
-# create targets for each file from ./test/
-foreach(bin ${tests_list})
-  string(REPLACE ".f90" "" bin ${bin})
-  add_executable(${bin} ${PROJECT_SOURCE_DIR}/test/${bin}.f90)
-  # set the target binary file location
-  set_target_properties(${bin}
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY
-    ${CMAKE_CURRENT_BINARY_DIR}/test)
-  # set the additional compile flags
-  set_target_properties(${bin}
-    PROPERTIES
-    COMPILE_FLAGS
-    "${Fortran90_FLAGS} ${Fortran90_DFLAGS} ${Fortran90_OFLAGS} ${Fortran90_PFLAGS}")
-  # link to the helper libraries
-  target_link_libraries(${bin} project_lib_shared ${external_libs})
-endforeach(bin)
+# subdirectory with tests
+add_subdirectory(test)
 
-ENABLE_TESTING()
-foreach(bin ${tests_list})
-  string(REPLACE ".f90" "" bin ${bin})
-
-  add_test(NAME ${bin} COMMAND ${bin}) # simple execution check
-
-  add_test(NAME ${bin}_compare
-    COMMAND ${CMAKE_COMMAND}
-    -DTEST_PROG=$<TARGET_FILE:${bin}>
-    -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/test/${bin}_output.txt
-    -DEXPECTED_FILE=${PROJECT_SOURCE_DIR}/test/${bin}_expected.txt
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/config/runtest.cmake
-    )
-
-endforeach(bin)
+include(${PROJECT_SOURCE_DIR}/test/CMakeTests.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/config/doxygen.cmake)
