@@ -22,7 +22,7 @@ module logger_module
 
 
   type, public :: named
-     integer :: logfile_unit = 0 !if 0, log will write to logger%unit
+     integer :: logfile_unit = FPDE_STDOUT !if 0, log will write to logger%unit
      integer :: status = 0       !0 means OK!
      character(len=FPDE_NAME_LEN) :: name = "" !empty name should produce a warning
    contains

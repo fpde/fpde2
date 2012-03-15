@@ -1,68 +1,90 @@
-! todo: openmp compatibility
+!>
+!! @file   data.f90
+!! @author Pawel Biernat <pawel.biernat@gmail.com>
+!! @date   Sat Mar  3 21:11:35 2012
+!!
+!! @brief  contains the primary data structure: the icicles
+!!
+!!
+!!
 
-module data_module
+module icicles_module
 
+  use constants_module
   use logger_module
+  !> @todo: later on it could be useful to define a bind(c) compatible
+  ! wrapper to icicles
+  ! use iso_c_binding
 
   private
 
-
-  integer, parameter, private :: MAX_REG = 1000
-
-
-  type, private :: init_register
-     integer :: length = 0      ! length of vector to add, 0 means scalar
-     integer :: number = 1      ! number of copies to add, additional
-                                ! copies are named using the
-                                ! convention name_1, name_2, etc.
-     logical :: evolved = .true.
-     logical :: vector = .true.  ! if .false. then its a scalar
-     character(len=FPDE_NAME_LEN) :: name = "" ! not named by default
-  end type init_register
-
-
   type, public :: named_vector
-     real, pointer :: value(:) => null()
-     character(len=FPDE_NAME_LEN) :: name = "" ! not named by default
+     real, pointer :: val(:)
+     character(len=NAME_LEN) :: name
   end type named_vector
 
 
   type, public :: named_scalar
-     real, pointer :: value => null()
-     character(len=FPDE_NAME_LEN) :: name = "" ! not named by default
+     real, pointer :: val
+     character(len=NAME_LEN) :: name
   end type named_scalar
 
 
-  type, public, extends(named) :: data
-     real, pointer, contiguous :: data_table(:) => null()
-     real, pointer :: evolved(:) => null()
-     type(init_register) :: init_table(MAX_REG)
-     type(named_vector), pointer :: vec(:) => null()
-     type(named_scalar), pointer :: scal(:) => null()
+  type, public :: icicles
+     real, pointer, contiguous :: data(:)!> the data is stored here,
+                                         !everything else points to
+                                         !icicles%data
+     type(named_vector), pointer :: vectors(:)
+     type(named_scalar), pointer :: scalars(:)
    contains
-     ! procedure :: add_vector
-     ! procedure :: add_scalar
-     ! procedure :: allocate
-  end type data
-
+     procedure, private :: get_vector
+     procedure, private :: get_scalar
+     generic :: get => get_vector, get_scalar
+  end type icicles
 
 contains
 
+  !> returns error=1 if vector was not found
+  function get_vector(ic, name, v) result(error)
+    class(icicles) :: ic
+    type(named_vector), pointer, intent(out) :: v
+    character(len=*) :: name
+    integer :: error
+    integer :: i
 
-  subroutine add_vector()
+    do i = 1, size(ic%vectors)
+       if(trim(ic%vectors(i)%name)==trim(name)) then
+          v=>ic%vectors(i)
+          error = 0
+          return
+       end if
+    end do
 
-  end subroutine add_vector
+    error = 1
+
+  end function get_vector
+
+  !> returns error=1 if scalar was not found
+  function get_scalar(ic, name, s) result(error)
+    class(icicles) :: ic
+    type(named_scalar), pointer, intent(out) :: s
+    character(len=*) :: name
+    integer :: error
+    integer :: i
+
+    do i = 1, size(ic%scalars)
+       if(trim(ic%scalars(i)%name)==trim(name)) then
+          s=>ic%scalars(i)
+          error = 0
+          return
+       end if
+    end do
+
+    error = 1
+
+  end function get_scalar
 
 
-  subroutine add_scalar()
-
-  end subroutine add_scalar
 
 
-  subroutine allocate()
-
-  end subroutine allocate
-
-
-end module data_module
-
+end module icicles_module
