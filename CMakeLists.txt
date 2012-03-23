@@ -17,7 +17,7 @@ include(CMakeForceCompiler)
 # to work with cmake 2.8
 # cmake_force_fortran_compiler(ifort "Intel")
 
-# the tools for creating libraries 
+# the tools for creating libraries
 # selecting archiver
 find_program(xiar xiar)
 	if(xiar)
@@ -56,15 +56,15 @@ set(Fortran77_DFLAGS "")
 set(Fortran77_OFLAGS "-O3")
 set(Fortran77_PFLAGS "-fp-model strict -double-size 128 -integer-size 64")
 
-set(Fortran90_FLAGS "-stand f08 -u -warn all -warn nounused -check all -cpp" )
+set(Fortran90_FLAGS "-stand f03 -u -warn all -warn nounused -check all -cpp" )
 set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
 set(Fortran90_OFLAGS "-O3")
 set(Fortran90_PFLAGS "-fp-model strict -real-size 128 -integer-size 64")
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 # set external libraries required by this project
-# set(external_libs "-llua5.2")
-find_package(LUA REQUIRED)
+find_package(Lua52 REQUIRED)
+set(external_libs ${LUA_LIBRARY})
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)
