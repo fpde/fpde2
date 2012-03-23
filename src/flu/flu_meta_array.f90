@@ -1,25 +1,25 @@
 module flu_meta_array_module
   use flu_meta_module
-  use flu_primitives_module
+  use flu_module
   use iso_c_binding
 
   private
 
   character(c_char) :: FLU_ARRAY_METATABLE = "flu_array_metatable"
 
-  public lua_register_userdata_as_array
+  ! public lua_register_userdata_as_array
 
 contains
 
   subroutine lua_register_userdata_as_array(l,a,name,cptr)
     use iso_c_binding
-    type(c_ptr) :: l
+    type(flu) :: l
     ! @bug: at this moment it will not work with quad, user has to be
     ! warned
-    real(c_double), target :: a(:)
+    real, target :: a(:)
     type(c_ptr) :: cptr
-    type(lua_userdata_ptr), pointer :: ud
-    character(c_char) :: name(*)
+    type(c_lua_userdata_ptr), pointer :: ud
+    character(len=*) :: name
 
     ! possible @bug, size of lua_userdata_ptr might be larger than 32
     ! bytes?
@@ -33,7 +33,7 @@ contains
     call lua_add_to_metatable(l, FLU_ARRAY_METATABLE,"__index",index)
     call lua_add_to_metatable(l, FLU_ARRAY_METATABLE,"__newindex",newindex)
     call lua_add_to_metatable(l, FLU_ARRAY_METATABLE,"__len",len)
-    call lua_getfield(l, LUA_REGISTRYINDEX, FLU_ARRAY_METATABLE)
+    call lua_getfield(l, C_LUA_REGISTRYINDEX, FLU_ARRAY_METATABLE)
     call lua_setmetatable(l,-2)
     call lua_setglobal(l,name)
 
@@ -45,14 +45,14 @@ contains
     type(c_ptr), value :: l
     integer(c_int) :: newindex, i
     type(c_ptr) :: cptr
-    type(lua_userdata_ptr), pointer :: ud
+    type(c_lua_userdata_ptr), pointer :: ud
     real(c_double), pointer :: x(:)
     real(c_double) :: val
 
     ! cptr = luaL_checkudata(l,1,"m1"//c_null_char)
-    cptr = lua_topointer(l,1)
-    i = luaL_checkinteger(l,2)
-    val = luaL_checknumber(l,3)
+    cptr = c_lua_topointer(l,1_c_int)
+    i = c_luaL_checkinteger(l,2_c_int)
+    val = c_luaL_checknumber(l,3_c_int)
 
     call c_f_pointer(cptr,ud)
     ! call c_f_pointer(ud%ptr,x,[s]) !@todo size check
@@ -68,13 +68,13 @@ contains
     integer(c_int) :: index
     integer(c_int) :: i
     type(c_ptr) :: cptr
-    type(lua_userdata_ptr), pointer :: ud
+    type(c_lua_userdata_ptr), pointer :: ud
     real(c_double), pointer :: x(:)
 
     ! cptr = luaL_checkudata(l,1,"m1"//c_null_char)
-    cptr = lua_topointer(l,1)
+    cptr = c_lua_topointer(l,1_c_int)
     ! cptr = lua_getuservalue(l,1)
-    i = luaL_checkinteger(l,2)
+    i = c_luaL_checkinteger(l,2_c_int)
 
     call c_f_pointer(cptr,ud)
     ! call c_f_pointer(ud%ptr,x,[s]) !@todo size
@@ -89,10 +89,10 @@ contains
     type(c_ptr), value :: l
     integer(c_int) :: len
     type(c_ptr) :: cptr
-    type(lua_userdata_ptr), pointer :: ud
+    type(c_lua_userdata_ptr), pointer :: ud
     real(c_double), pointer :: x(:)
 
-    cptr = luaL_checkudata(l,1,"m1"//c_null_char)
+    cptr = c_luaL_checkudata(l,1_c_int,"m1"//c_null_char)
 
     call c_f_pointer(cptr,ud)
     ! call c_f_pointer(ud%ptr,x,[s]) !@todo size
