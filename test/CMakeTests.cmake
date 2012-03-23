@@ -27,6 +27,7 @@ foreach(bin ${tests_list})
   elseif( bin_name MATCHES "[^.]*_SEG$" )
     # simple execution check
     add_test(NAME ${bin} COMMAND test/${bin})
+    set_property(TEST ${bin} PROPERTY WILL_FAIL TRUE)
 
   elseif( bin_name MATCHES "[^.]*_OUT$" )
     # output compare test
