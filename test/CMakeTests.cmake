@@ -2,7 +2,7 @@
 enable_testing()
 
 # Search for the source files recursively and add them to src_sources
-file(GLOB_RECURSE tests_list RELATIVE 
+file(GLOB_RECURSE tests_list RELATIVE
   ${PROJECT_SOURCE_DIR}/test/
   ${PROJECT_SOURCE_DIR}/test/*.f90)
 
@@ -14,16 +14,21 @@ foreach(bin ${tests_list})
   string(REPLACE ".f90" "" bin ${bin})
 
   # select test type depending on suffix of the file
-  # _OLEK  - simple execution check
-  # _BOLEK - output compare test
+  # _RUN - simple execution check
+  # _SEG - checks if program ended in segmentation fault
+  # _OUT - output compare test
 
   get_filename_component(bin_name ${bin} NAME)
-  
-  if( bin_name MATCHES "[^.]*_OLEK$" )
+
+  if( bin_name MATCHES "[^.]*_RUN$" )
     # simple execution check
     add_test(NAME ${bin} COMMAND test/${bin})
 
-  elseif( bin_name MATCHES "[^.]*_BOLEK$" )
+  elseif( bin_name MATCHES "[^.]*_SEG$" )
+    # simple execution check
+    add_test(NAME ${bin} COMMAND test/${bin})
+
+  elseif( bin_name MATCHES "[^.]*_OUT$" )
     # output compare test
     add_test(NAME ${bin}
       COMMAND ${CMAKE_COMMAND}
