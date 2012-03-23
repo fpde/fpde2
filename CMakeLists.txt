@@ -59,7 +59,7 @@ set(Fortran77_PFLAGS "-fp-model strict -double-size 128 -integer-size 64")
 set(Fortran90_FLAGS "-stand f08 -u -warn all -warn nounused -check all -cpp" )
 set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
 set(Fortran90_OFLAGS "-O3")
-set(Fortran90_PFLAGS "-fp-model strict -real-size 128 -integer-size 64")
+set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 64")
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 # set external libraries required by this project

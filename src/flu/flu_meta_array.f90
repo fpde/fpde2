@@ -7,7 +7,7 @@ module flu_meta_array_module
 
   character(c_char) :: FLU_ARRAY_METATABLE = "flu_array_metatable"
 
-  ! public lua_register_userdata_as_array
+  public lua_register_userdata_as_array
 
 contains
 
@@ -18,13 +18,13 @@ contains
     ! warned
     real, target :: a(:)
     type(c_ptr) :: cptr
-    type(c_lua_userdata_ptr), pointer :: ud
+    type(lua_userdata_ptr), pointer :: ud
     character(len=*) :: name
 
     ! possible @bug, size of lua_userdata_ptr might be larger than 32
     ! bytes?
-    print *, transfer(l,1)
-    ! cptr = lua_newuserdata(l,LUA_USERDATA_PTR_SIZE)
+    ! print *, transfer(l,1)
+    cptr = lua_newuserdata(l,C_LUA_USERDATA_PTR_SIZE)
     ! point ud to newly created userdata
     call c_f_pointer(cptr,ud)
     ! use pointer inside lua_userdata_ptr as a pointer to the table
@@ -45,7 +45,7 @@ contains
     type(c_ptr), value :: l
     integer(c_int) :: newindex, i
     type(c_ptr) :: cptr
-    type(c_lua_userdata_ptr), pointer :: ud
+    type(lua_userdata_ptr), pointer :: ud
     real(c_double), pointer :: x(:)
     real(c_double) :: val
 
@@ -68,7 +68,7 @@ contains
     integer(c_int) :: index
     integer(c_int) :: i
     type(c_ptr) :: cptr
-    type(c_lua_userdata_ptr), pointer :: ud
+    type(lua_userdata_ptr), pointer :: ud
     real(c_double), pointer :: x(:)
 
     ! cptr = luaL_checkudata(l,1,"m1"//c_null_char)
@@ -89,7 +89,7 @@ contains
     type(c_ptr), value :: l
     integer(c_int) :: len
     type(c_ptr) :: cptr
-    type(c_lua_userdata_ptr), pointer :: ud
+    type(lua_userdata_ptr), pointer :: ud
     real(c_double), pointer :: x(:)
 
     cptr = c_luaL_checkudata(l,1_c_int,"m1"//c_null_char)

@@ -195,7 +195,7 @@ module c_lua_module
      function c_lua_newuserdata(lstate, size) bind(C,name="lua_newuserdata")
        use iso_c_binding, only: c_ptr, c_size_t
        type(c_ptr), value :: lstate
-       integer(c_size_t) :: size
+       integer(c_size_t), value :: size
        type(c_ptr) :: c_lua_newuserdata
      end function c_lua_newuserdata
 

@@ -52,12 +52,12 @@ module flu_module
 
   !> a type used as a handle for userdata. it stores a pointer to the
   !> real data
-  type, public :: c_lua_userdata_ptr
+  type, public :: lua_userdata_ptr
      type(c_ptr) :: ptr
-  end type c_lua_userdata_ptr
+  end type lua_userdata_ptr
 
   !> assumed size of userdata, @todo check if 32 bytes is enough
-  integer(c_int), parameter :: C_LUA_USERDATA_PTR_SIZE = 100
+  integer, parameter :: C_LUA_USERDATA_PTR_SIZE = 100
 
   abstract interface
      !> abstract interface to the type of lua_CFunction
@@ -126,6 +126,8 @@ contains
     type(flu) :: l
     type(c_ptr) :: k
     integer :: nargs, nresults, errfunc, ctx
+    character(len=1000) :: msg
+
     lua_pcallk = c_lua_pcallk(&
          l%lstate, &
          int(nargs,c_int), &
@@ -133,6 +135,13 @@ contains
          int(errfunc,c_int),&
          int(ctx,c_int),&
          k)
+
+   if(lua_pcallk /= LUA_OK) then
+      call lua_tostring(l,-1,msg)
+      call l%log(FPDE_LOG_ERROR,"Unable to call lua function")
+      call l%log(FPDE_LOG_ERROR,"Lua error:[" // trim(msg) // "]")
+   end if
+
   end function lua_pcallk
 
 
@@ -189,15 +198,16 @@ contains
   subroutine lua_tostring(l, index, str)
     type(flu) :: l
     character(len=*), intent(out) :: str
-    integer :: index, len
+    integer :: index
+    integer(c_size_t) :: len
     type(c_ptr) :: ptr
 
     ptr = c_lua_tolstring(&
          l%lstate,&
          int(index,c_int),&
-         int(len,c_int))
+         len)
 
-    call c_ptr_to_str(ptr, str, len)
+    call c_ptr_to_str(ptr, str, int(len,kind(1)))
   end subroutine lua_tostring
 
 
@@ -422,13 +432,32 @@ contains
   end subroutine lua_pop
 
 
-!   function lua_pcall(L,n,r,f)
-!     type(c_ptr) :: L
-!     integer(c_int) :: lua_pcall
-!     integer(c_int) :: n, r, f
+  !> @return .true. if no problems, .false. otherwise
+  function luaL_dofile(l, filename)
+    logical :: luaL_dofile
+    type(flu) :: l
+    integer :: pcall
+    character(len=*) :: filename
 
-!     lua_pcall = lua_pcallk(L, n, r, f, 0_c_int, c_null_ptr)
-!   end function lua_pcall
+    luaL_dofile = .false.
+
+    if( luaL_loadfile(l,trim(filename)) ) then
+       pcall = lua_pcall(l,0,C_LUA_MULTRET,0)
+       if( pcall == LUA_OK ) then
+          luaL_dofile = .true.
+          return
+       end if
+    end if
+
+  end function luaL_dofile
+
+
+  function lua_pcall(l,n,r,f)
+    type(flu) :: l
+    integer :: lua_pcall
+    integer :: n, r, f
+    lua_pcall = lua_pcallk(l, n, r, f, 0, c_null_ptr)
+  end function lua_pcall
 
 !   function luaL_loadfile(lstate, filename)
 !     use iso_c_binding, only: c_ptr, c_char, c_int
@@ -444,23 +473,6 @@ contains
 
 !   end function luaL_loadfile
 
-!   ! returns >0 in case of error
-!   function luaL_dofile(lstate, filename)
-!     integer(c_int) :: luaL_dofile
-!     type(c_ptr) :: lstate
-!     character(len=*) :: filename
-
-!     luaL_dofile=luaL_loadfile(lstate,trim(filename))
-!     if( luaL_dofile /=0 ) then
-!        return
-!     end if
-
-!     luaL_dofile=lua_pcall(lstate,0_c_int,C_LUA_MULTRET,0_c_int)
-!     if( luaL_dofile /= 0 ) then
-!        return
-!     end if
-
-!   end function luaL_dofile
 
 !   subroutine lua_tostring(lstate, index, str)
 !     type(c_ptr) :: lstate
