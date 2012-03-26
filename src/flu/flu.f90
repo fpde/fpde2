@@ -3,10 +3,16 @@
 !! @author Pawel Biernat <pawel.biernat@gmail.com>
 !! @date   Tue Feb 21 21:49:43 2012
 !!
-!! @brief
+!! @brief Contains wrappers to C API of Lua 5.2.
 !!
-!! @todo : separate low-level operations to flu_primitives
-!! @todo : pop the stack after get_
+!! The wrappers are mostly one to one as expected, with few
+!! exceptions. All exceptions are described in comments, and consist
+!! mostly of changing return values from 0 and 1 to .false. and
+!! .true. .
+!!
+!! Besides wrappers to some Lua functions, there are also several
+!! implementations of macros defined by lua.h, which are also
+!! implemented in a way consistent with lua documentation.
 !!
 !!
 !!
@@ -459,37 +465,6 @@ contains
     lua_pcall = lua_pcallk(l, n, r, f, 0, c_null_ptr)
   end function lua_pcall
 
-!   function luaL_loadfile(lstate, filename)
-!     use iso_c_binding, only: c_ptr, c_char, c_int
-!     integer(c_int) :: luaL_loadfile
-!     type(c_ptr) :: lstate
-!     character(len=*) :: filename
-
-!     luaL_loadfile = luaL_loadfilex_ptr( lstate, trim(filename)//c_null_char, c_null_ptr )
-
-!     if( luaL_loadfile /= 0 ) then
-!        return
-!     end if
-
-!   end function luaL_loadfile
-
-
-!   subroutine lua_tostring(lstate, index, str)
-!     type(c_ptr) :: lstate
-!     character(len=*), intent(out) :: str
-!     integer(c_int) :: index, len
-!     type(c_ptr) :: ptr
-!     ! character(c_char), pointer :: c_str(:)
-
-!     ptr = lua_tolstring(lstate,index,len)
-
-!     ! call c_f_pointer(ptr, c_str, [len])
-!     call c_ptr_to_str(ptr, str, len)
-
-!   end subroutine lua_tostring
-
-!   ! converts c_ptr (assuming it points to c_char) to character(len=*)
-
 ! !!!!!!!! Some high level lua calls
 
 !   recursive function get_recursively(f, desc) result(r)
@@ -574,31 +549,6 @@ contains
 !     end if
 
 !   end subroutine init
-
-!   ! stops lua vm
-!   subroutine free(f)
-!     class(flu) :: f
-!     call lua_close(f%lstate)
-!   end subroutine free
-
-
-!   ! loads and executes a file in lua vm
-!   subroutine load_file(f,filename)
-!     class(flu) :: f
-!     character(len=*), intent(in) :: filename
-!     ! @bug: len=100
-!     character(len=100) :: out
-!     integer :: status
-
-!     status = luaL_dofile(f%lstate, filename)
-
-!     if( status /= 0 ) then
-!        call lua_tostring( f%lstate,-1,out )
-!        call f%log(FPDE_LOG_ERROR, trim(out))
-!        return
-!     end if
-
-!   end subroutine load_file
 
 
 !   function get_character(f, id, out) result(r)
