@@ -13,7 +13,7 @@ module icicles_module
   use constants_module
   use logger_module
   !> @todo: later on it could be useful to define a bind(c) compatible
-  ! wrapper to icicles
+  !! wrapper to icicles
   ! use iso_c_binding
 
   private
@@ -44,7 +44,7 @@ module icicles_module
 
 contains
 
-  !> returns error=1 if vector was not found
+  !> returns error=FPDE_STATUS_ERROR if vector was not found
   function get_vector(ic, name, v) result(error)
     class(icicles) :: ic
     type(named_vector), pointer, intent(out) :: v
@@ -55,16 +55,16 @@ contains
     do i = 1, size(ic%vectors)
        if(trim(ic%vectors(i)%name)==trim(name)) then
           v=>ic%vectors(i)
-          error = 0
+          error = FPDE_STATUS_OK
           return
        end if
     end do
 
-    error = 1
+    error = FPDE_STATUS_ERROR
 
   end function get_vector
 
-  !> returns error=1 if scalar was not found
+  !> returns FPDE_STATUS_ERROR if scalar was not found
   function get_scalar(ic, name, s) result(error)
     class(icicles) :: ic
     type(named_scalar), pointer, intent(out) :: s
@@ -75,16 +75,13 @@ contains
     do i = 1, size(ic%scalars)
        if(trim(ic%scalars(i)%name)==trim(name)) then
           s=>ic%scalars(i)
-          error = 0
+          error = FPDE_STATUS_OK
           return
        end if
     end do
 
-    error = 1
+    error = FPDE_STATUS_ERROR
 
   end function get_scalar
-
-
-
 
 end module icicles_module

@@ -9,20 +9,18 @@
 !! order to use them with t%set_pointers, now they are looked up using
 !! icicles%get.
 !!
-!! @todo replace [1,n] with sequence 1,n in t%set_pointers?
-!!
 
 program icicles_prog
   use icicles_module
-  use tentacle_module
+  use icicles_register_module
 
   integer :: i,j
-  integer ::  n = 40
+  integer ::  n = 4
   character(len=10) :: str
 
   type(named_vector), pointer :: v
   type(named_scalar), pointer :: s
-  type(magical_tentacle) :: t
+  type(icicles_register) :: t
   type(icicles), pointer :: ic
 
   real, target :: x(5)
@@ -37,6 +35,7 @@ program icicles_prog
 
   ! create icicles from registry
   call t%create_icicles(ic)
+  call t%info()
   ! initialize data inside icicles
   ic%data = [(n*(n+1)/2-i+1,i=1,n*(n+1)/2)]
   print *, ic%data
@@ -65,7 +64,7 @@ program icicles_prog
 
   ! lets try to point some vectors from icicles to x
   x = -1
-  call t%set_pointers(ic, [2,3], x)
+  call t%set_pointers(ic, x, entr_range=[2,3])
 
   ! all of the following tests should print "T"
   if( ic%get("2",v) == 0) then
@@ -105,7 +104,7 @@ program icicles_prog
   end do
 
   ! reset pointers
-  call t%set_pointers(ic,[1,n],ic%data)
+  call t%set_pointers(ic,ic%data)
 
   ! lets check if the pointers are pointing back to data now
   if( ic%get("2",v) == 0) then
@@ -119,7 +118,6 @@ program icicles_prog
   else
      stop
   end if
-
 
 
 end program icicles_prog
