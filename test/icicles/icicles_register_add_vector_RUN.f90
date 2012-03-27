@@ -14,7 +14,7 @@ program icicles_register_add_vector
 
   integer, parameter :: n = 4
   character(len=5) :: name(n) = ["name1","name2","name3","name4"]
-  integer :: ln(n) = [3,2,1,4]
+  integer :: ln(n) = [3,2,5,4]
   integer :: i
 
   do i = 1, n

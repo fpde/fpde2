@@ -99,19 +99,20 @@ contains
   !! derivatives etc. and use set_pointers with icicles and various
   !! registers to set appropriate pointers accordingly.
   !!
-  subroutine set_pointers(reg, ic, vec, entr_range)
+  subroutine set_pointers(reg, ic, vec, entr_range, error)
     class(icicles_register), target :: reg
     type(icicles), pointer :: ic
     type(icicles_register_entry), pointer :: entr
     integer, intent(in), optional, target :: entr_range(:)
     real, target, intent(in) :: vec(:)
+    integer, optional, intent(out) :: error
 
     integer, pointer :: rng(:)
     ! temporary static array used if entr_range is not present
     integer, target :: temp(reg%n_entries)
     type(named_vector), pointer :: v
     type(named_scalar), pointer :: s
-    integer :: len, i, j, l
+    integer :: len, i, j, l, v_err, s_err
 
     if( present(entr_range) ) then
        ! use entr_range if present
@@ -132,6 +133,7 @@ contains
        if( j > reg%n_entries .or. j < 1 ) then
           call reg%log(FPDE_LOG_ERROR, &
                "Attempt to use set_pointers with negative index")
+          if(present(error)) error = FPDE_STATUS_ERROR
           return
        end if
 
@@ -143,20 +145,34 @@ contains
        if( len+l-1 > size(vec) ) then
           call reg%log(FPDE_LOG_ERROR, &
                "Attempt to run set_pointers with array size too small")
+          if(present(error)) error = FPDE_STATUS_ERROR
           return
+       end if
+
+       call ic%get( entr%name, v, error = v_err )
+       call ic%get( entr%name, s, error = s_err )
 
        ! vector case
-       else if( ic%get(entr%name,v) == FPDE_STATUS_OK ) then
+       if( v_err == FPDE_STATUS_OK ) then
           v%val(1:l) => vec(len:len + l-1)
           len = len + l
 
        ! scalar case
-       else if( ic%get(entr%name,s) == FPDE_STATUS_OK ) then
+       else if( s_err == FPDE_STATUS_OK ) then
           s%val => vec(len)
           len = len + 1
+
+       else
+          call reg%log(FPDE_LOG_ERROR, &
+               "Icicles does not have a scalar/vector&
+               & with name ["//entr%name//"]")
+          if(present(error)) error = FPDE_STATUS_ERROR
+          return
        end if
 
     end do
+
+    if(present(error)) error = FPDE_STATUS_OK
 
   end subroutine set_pointers
 
@@ -167,9 +183,10 @@ contains
   !!
   !! @param ics null pointer to the icicles to be created
   !!
-  subroutine create_icicles(reg, ics)
+  subroutine create_icicles(reg, ics, error)
     class(icicles_register), target :: reg
     type(icicles), pointer, intent(out) :: ics
+    integer, optional, intent(out) :: error
 
     integer :: n_entries,i,l
     integer, pointer :: len(:)
@@ -181,6 +198,7 @@ contains
        call reg%log(FPDE_LOG_WARNING,&
             "Attempt to pass an associated icicles poionter to&
             & create_icicles, icicles will not be recreated")
+       if( present(error) ) error = FPDE_STATUS_ERROR
        return
     end if
 

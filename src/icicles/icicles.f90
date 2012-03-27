@@ -45,43 +45,43 @@ module icicles_module
 contains
 
   !> returns error=FPDE_STATUS_ERROR if vector was not found
-  function get_vector(ic, name, v) result(error)
+  subroutine get_vector(ic, name, v, error)
     class(icicles) :: ic
     type(named_vector), pointer, intent(out) :: v
     character(len=*) :: name
-    integer :: error
+    integer, optional, intent(out) :: error
     integer :: i
 
     do i = 1, size(ic%vectors)
        if(trim(ic%vectors(i)%name)==trim(name)) then
           v=>ic%vectors(i)
-          error = FPDE_STATUS_OK
+          if(present(error)) error = FPDE_STATUS_OK
           return
        end if
     end do
 
-    error = FPDE_STATUS_ERROR
+    if(present(error)) error = FPDE_STATUS_ERROR
 
-  end function get_vector
+  end subroutine get_vector
 
   !> returns FPDE_STATUS_ERROR if scalar was not found
-  function get_scalar(ic, name, s) result(error)
+  subroutine get_scalar(ic, name, s, error)
     class(icicles) :: ic
     type(named_scalar), pointer, intent(out) :: s
     character(len=*) :: name
-    integer :: error
+    integer, optional, intent(out) :: error
     integer :: i
 
     do i = 1, size(ic%scalars)
        if(trim(ic%scalars(i)%name)==trim(name)) then
           s=>ic%scalars(i)
-          error = FPDE_STATUS_OK
+          if(present(error)) error = FPDE_STATUS_OK
           return
        end if
     end do
 
-    error = FPDE_STATUS_ERROR
+    if(present(error)) error = FPDE_STATUS_ERROR
 
-  end function get_scalar
+  end subroutine get_scalar
 
 end module icicles_module

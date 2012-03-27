@@ -11,7 +11,7 @@ program icicles_register_create_icicles
   character(len=6) :: name_v(n_v) = ["vname1","vname2","vname3","vname4"]
   character(len=6) :: name_s(n_s) = ["sname1","sname2","sname3"]
   integer :: ln_v(n_v) = [3,2,5,4]
-  integer :: i
+  integer :: i, err
 
   type(named_vector), pointer :: v => null()
   type(named_scalar), pointer :: s => null()
@@ -27,7 +27,12 @@ program icicles_register_create_icicles
   end do
 
   ! create icicles
-  call reg%create_icicles(ic)
+  call reg%create_icicles(ic, error = err)
+
+  ! check error status
+  if ( err /= FPDE_STATUS_OK ) then
+     stop 2
+  end if
 
   ! check size of allocated ic%data
   if ( .not. associated(ic%data) ) then
@@ -46,7 +51,8 @@ program icicles_register_create_icicles
 
   ! check if vectors were added to icicles
   do i = 1, n_v
-     if ( ic%get(name_v(i),v) /= FPDE_STATUS_OK ) then
+     call ic%get(name_v(i), v, error = err)
+     if ( err /= FPDE_STATUS_OK ) then
         stop 7
      ! implicit check of ic%get_vector
      else if ( v%name /= name_v(i) ) then
@@ -58,7 +64,8 @@ program icicles_register_create_icicles
   end do
 
   do i = 1, n_s
-     if ( ic%get(name_s(i),s) /= FPDE_STATUS_OK ) then
+     call ic%get(name_s(i), s, error = err)
+     if ( err /= FPDE_STATUS_OK ) then
         stop 10
      else if( s%name /= name_s(i) ) then
         stop 11
