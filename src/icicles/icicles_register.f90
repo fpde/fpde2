@@ -39,10 +39,11 @@ contains
   !! @param len length of entry, len=1 corresponds to scalars,
   !!         while len>1 corresponds to vectors
   !!
-  subroutine add(reg, name, len)
+  subroutine add(reg, name, len, error)
     class(icicles_register) :: reg
     character(len=*) :: name
     integer, optional :: len
+    integer, optional, intent(out) :: error
 
     integer :: n
     type(icicles_register_entry) :: entr
@@ -50,8 +51,17 @@ contains
     n = reg%n_entries
     if( n == MAX_ENTRIES ) then
        call reg%log(FPDE_LOG_ERROR, "icicles_register is full, change MAX_ENTRIES")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
+
+    if( any(reg%entries(1:n)%name == name ) ) then
+       call reg%log(FPDE_LOG_ERROR,&
+            "Adding a duplicate entry to icicles_register")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
 
     entr%name = trim(name)
 
@@ -66,6 +76,8 @@ contains
     reg%n_entries = n+1
 
     call reg%log(FPDE_LOG_DEBUG, "Registered vector [" // trim(name) // "]")
+    if(present(error)) error = FPDE_STATUS_OK
+
   end subroutine add
 
 
@@ -135,7 +147,7 @@ contains
 
        ! vector case
        else if( ic%get(entr%name,v) == FPDE_STATUS_OK ) then
-          v%val(1:l) => vec(len:l+len-1)
+          v%val(1:l) => vec(len:len + l-1)
           len = len + l
 
        ! scalar case
@@ -174,12 +186,11 @@ contains
 
     n_entries = reg%n_entries
     len => reg%entries(1:n_entries)%len
-    print*,len
 
     ! count entries of len=1
-    s_len=sum(len, mask= len==1 )
+    s_len=count(len==1)
     ! total of lengths of entries with len >1
-    v_len=sum(len, mask= len>1  )
+    v_len=count(len>1)
 
     allocate(ics)
     allocate(ics%data(sum(len)))
