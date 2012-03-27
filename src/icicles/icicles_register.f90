@@ -165,7 +165,7 @@ contains
        else
           call reg%log(FPDE_LOG_ERROR, &
                "Icicles does not have a scalar/vector&
-               & with name ["//entr%name//"]")
+               & with name ["//trim(entr%name)//"]")
           if(present(error)) error = FPDE_STATUS_ERROR
           return
        end if
