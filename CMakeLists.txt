@@ -36,7 +36,8 @@ mark_as_advanced(xild)
 message(STATUS "Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "Archiver: ${CMAKE_AR}")
 message(STATUS "Linker: ${CMAKE_LINKER}")
-
+SET (CMAKE_Fortran_CREATE_STATIC_LIBRARY "<CMAKE_AR> cru <LINK_FLAGS> <TARGET> <OBJECTS>")
+# message(STATUS "${CMAKE_Fortran_CREATE_STATIC_LIBRARY}")
 # variables used in out of source build
 set( LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib )
 #set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake )
@@ -56,7 +57,7 @@ set(Fortran77_DFLAGS "")
 set(Fortran77_OFLAGS "-O3")
 set(Fortran77_PFLAGS "-fp-model strict -double-size 128 -integer-size 64")
 
-set(Fortran90_FLAGS "-stand f08 -u -warn all -warn nounused -check all -cpp" )
+set(Fortran90_FLAGS "-fPIC -stand f08 -u -warn all -warn nounused -check all -cpp" )
 set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
 set(Fortran90_OFLAGS "-O3")
 set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 64")
@@ -78,3 +79,7 @@ add_subdirectory(test)
 include(${PROJECT_SOURCE_DIR}/test/CMakeTests.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/config/doxygen.cmake)
+
+#add_custom_command(OUTPUT alala COMMAND make ARGS test DEPENDS tests)
+#add_dependencies(${CMAKE_CTEST_COMMAND} tests)
+#add_custom_target(Name [ALL] [command1

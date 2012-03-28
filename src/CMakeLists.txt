@@ -13,15 +13,15 @@ set_source_files_properties(${src_sources77} PROPERTIES COMPILE_FLAGS
 set_source_files_properties(${src_sources90} PROPERTIES COMPILE_FLAGS
   "${Fortran90_FLAGS} ${Fortran90_DFLAGS} ${Fortran90_OFLAGS} ${Fortran90_PFLAGS}")
 
-# set objects for shared library
-add_library(project_lib_shared SHARED ${src_sources77} ${src_sources90})
+# set objects for static library
+add_library(project_lib_shared STATIC ${src_sources77} ${src_sources90})
 set_target_properties(project_lib_shared PROPERTIES OUTPUT_NAME ${project_lib_name} )
 
-# @todo
-# # static library can be generated directly from shared lib
-# # object (what about ipo?)
-# # set objects for static library
-# add_library(fpde2 STATIC ${src_sources77} ${src_sources90})
-
-# @todo if there is
-# target_link_libraries(mystuff blas lapack)
+# build shared library out of static one
+# @todo check linking with -ipo -fast etc.
+add_custom_command(TARGET project_lib_shared
+  POST_BUILD
+  COMMAND ${CMAKE_AR} -x lib${project_lib_name}.a
+  COMMAND ${CMAKE_LINKER} -shared *.o -o lib${project_lib_name}.so
+  COMMAND rm *.o
+  WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH})
