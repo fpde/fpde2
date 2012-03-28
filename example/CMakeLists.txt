@@ -1,4 +1,6 @@
 # CMake config file for all sources in ${PROJECT_SOURCE_DIR}/example/ subdir
+add_custom_target(build_examples)
+
 include_directories(.)
 
 # Search for the source files recursively and add them to examples_list
@@ -16,7 +18,7 @@ foreach(bin ${examples_list})
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY
     ${CMAKE_CURRENT_BINARY_DIR})
-  
+
   get_filename_component(bin_path ${bin} PATH)
 
   if( bin_path STRGREATER "" )
@@ -30,4 +32,7 @@ foreach(bin ${examples_list})
     EXCLUDE_FROM_ALL "TRUE")
   # link to the helper libraries
   target_link_libraries(${bin} project_lib_shared ${external_libs})
+
+  add_dependencies(build_examples ${bin})
+
 endforeach(bin)

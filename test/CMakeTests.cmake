@@ -1,4 +1,6 @@
 # Testing configuration
+add_custom_target(build_tests)
+
 enable_testing()
 
 # Search for the source files recursively and add them to src_sources
@@ -7,7 +9,7 @@ file(GLOB_RECURSE tests_list RELATIVE
   ${PROJECT_SOURCE_DIR}/test/*.f90)
 
 message("")
-message(STATUS "Tests to test:")
+message(STATUS "Tests to build:")
 message(STATUS "${tests_list}\n")
 
 foreach(bin ${tests_list})
@@ -25,7 +27,7 @@ foreach(bin ${tests_list})
     add_test(NAME ${bin} COMMAND test/${bin})
 
   elseif( bin_name MATCHES "[^.]*_SEG$" )
-    # simple execution check
+    # checks if program ended in segmentation fault
     add_test(NAME ${bin} COMMAND test/${bin})
     set_property(TEST ${bin} PROPERTY WILL_FAIL TRUE)
 
@@ -33,10 +35,25 @@ foreach(bin ${tests_list})
     # output compare test
     add_test(NAME ${bin}
       COMMAND ${CMAKE_COMMAND}
-      -DTEST_PROG=${bin}
-      -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/${bin}.out
-      -DEXPECTED_FILE=${PROJECT_SOURCE_DIR}/${bin}.txt
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/CompareTest.cmake
+      -DTEST_PROG=test/${bin}
+      -DOUTPUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/test/${bin}.out
+      -DEXPECTED_FILE=${PROJECT_SOURCE_DIR}/test/${bin}.txt
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/test/CompareTest.cmake
       )
   endif( )
+
+  set_target_properties(${bin}
+    PROPERTIES
+    EXCLUDE_FROM_ALL true)
+
+  # set_tests_properties(${bin}
+  #   PROPERTIES
+  #   DEPENDS
+  #   tests)
+
+  add_dependencies(build_tests ${bin})
+
 endforeach(bin)
+
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
+  DEPENDS build_tests)

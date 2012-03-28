@@ -1,5 +1,5 @@
 # execute test program and catch returned signal/status in is_error
-execute_process(COMMAND ${TEST_PROG} 
+execute_process(COMMAND ${TEST_PROG}
   RESULT_VARIABLE is_error
   OUTPUT_FILE ${OUTPUT_FILE})
 
@@ -10,7 +10,7 @@ endif()
 # perform extended test - compare expected and generated
 # output files
 execute_process(COMMAND ${CMAKE_COMMAND} -E compare_files
-  ${OUTPUT_FILE} ${EXPECTED_FILE} 
+  ${OUTPUT_FILE} ${EXPECTED_FILE}
   RESULT_VARIABLE DIFFERENT)
 
 if(DIFFERENT)
