@@ -102,6 +102,7 @@ contains
     character(len=2) :: k
     real :: r = 123.
     l%lstate = c_luaL_newstate()
+    l%name = "luavm"
 
     call lua_pushnumber(l,r)
     ! check if the pushed number is unchanged after retrieving it from
@@ -109,7 +110,9 @@ contains
     if ( r /= luaL_checknumber(l,-1) ) then
        write(k,'(i2)') kind(r)
        call l%log(FPDE_LOG_ERROR, "Lua number type is incompatible with real("//k//")")
+       return
     end if
+
   end function luaL_newstate
 
 
@@ -155,7 +158,7 @@ contains
     type(flu) :: l
     integer :: index
     character(len=*) :: name
-    call c_lua_getfield(l%lstate,int(index,c_int),name//c_null_char)
+    call c_lua_getfield(l%lstate,int(index,c_int),trim(name)//c_null_char)
   end subroutine lua_getfield
 
 
@@ -170,7 +173,7 @@ contains
   subroutine lua_getglobal(l, name)
     type(flu) :: l
     character(len=*) :: name
-    call c_lua_getglobal(l%lstate, name//c_null_char)
+    call c_lua_getglobal(l%lstate, trim(name)//c_null_char)
   end subroutine lua_getglobal
 
 
@@ -266,7 +269,7 @@ contains
 
     retval = c_luaL_loadfilex_ptr(&
          l%lstate,&
-         filename//c_null_char,&
+         trim(filename)//c_null_char,&
          c_null_ptr)
 
     if( retval == LUA_OK ) then
@@ -393,7 +396,7 @@ contains
     type(flu) :: l
     character(len=*) :: name
     logical luaL_newmetatable
-    if( c_luaL_newmetatable(l%lstate, name//c_null_char) == 0 ) then
+    if( c_luaL_newmetatable(l%lstate, trim(name)//c_null_char) == 0 ) then
        luaL_newmetatable = .false.
     else
        luaL_newmetatable = .true.
