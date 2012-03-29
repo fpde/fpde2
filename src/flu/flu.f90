@@ -8,7 +8,7 @@
 !! The wrappers are mostly one to one as expected, with few
 !! exceptions. All exceptions are described in comments, and consist
 !! mostly of changing return values from 0 and 1 to .false. and
-!! .true. .
+!! .true. respectively.
 !!
 !! Besides wrappers to some Lua functions, there are also several
 !! implementations of macros defined by lua.h, which are also
@@ -17,20 +17,20 @@
 !!
 !!
 module flu_module
-  use iso_c_binding !, only: c_ptr, c_null_ptr, c_null_char, c_char, c_int
+  use iso_c_binding
   use c_lua_module
   use c_helper_module
   use logger_module
 
 
-  !> lua constants
+  !> lua constants, copied from lua.h
   integer, parameter :: &
        C_LUA_MULTRET = -1,&
        C_LUAI_MAXSTACK = 1000000,&
        C_LUAI_FIRSTPSEUDOINDEX = -C_LUAI_MAXSTACK - 1000,&
        C_LUA_REGISTRYINDEX = C_LUAI_FIRSTPSEUDOINDEX
 
-  !> lua types
+  !> lua types, copied from lua.h
   integer, parameter ::&
        C_LUA_TNONE          =(-1),&
        C_LUA_TNIL           =0,&
@@ -325,6 +325,25 @@ contains
     integer :: idx, lua_tointeger, isnum
     lua_tointeger = c_lua_tointegerx(l%lstate, int(idx,c_int),c_null_ptr)
   end function lua_tointeger
+
+
+  !> Corresponds to lua_isnil macro
+  !!
+  !! @param idx index of element to be checked
+  !!
+  !! @return .true. if element is nil, .false. otherwise
+  !!
+  function lua_isnil(l,idx)
+    type(flu) :: l
+    integer :: idx
+    logical :: lua_isnil
+
+    if( lua_type(l, idx) == C_LUA_TNIL ) then
+       lua_isnil = .true.
+    else
+       lua_isnil = .false.
+    end if
+  end function lua_isnil
 
 
   subroutine lua_pushstring(l, str)

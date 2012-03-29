@@ -1,3 +1,13 @@
+!>
+!! @file   solver_factory.f90
+!! @author Pawel Biernat <pawel.biernat@gmail.com>
+!! @date   Thu Mar 29 19:14:08 2012
+!!
+!! @brief Solver factory is used to allocate various classes of
+!! solvers, all of which should be extensions of class 'solver'
+!!
+!!
+!!
 module solver_factory
 
   use constants_module
@@ -6,6 +16,16 @@ module solver_factory
 
 contains
 
+  !> Allocates memory for a solver of type given by id
+  !!
+  !! @param[in] id type of solver to allocate, it should be a stringified
+  !! version of type name
+  !!
+  !! @param[out] error FPDE_STATUS_ERROR is returned if no type
+  !! matches the given @id
+  !!
+  !! @return Allocated solver of type "id"
+  !!
   function solver_new(id, error) result(s)
     class(solver), pointer :: s
     integer, optional, intent(out) :: error

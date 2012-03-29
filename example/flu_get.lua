@@ -6,7 +6,6 @@ u = {
 
 s = {
    type = "solver",
-   name = "abc",
    nx = 1,
    mesh = {
       type = "m1",

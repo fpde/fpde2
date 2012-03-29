@@ -13,6 +13,7 @@ module solver_flu_module
 
 contains
 
+
   subroutine flu_get_solver(l, s, key, index, error)
     type(flu) :: l
     class(solver), pointer :: s
@@ -32,32 +33,32 @@ contains
        idx = -1
     end if
 
-    if( idx == 0 ) then
-       call lua_getglobal( l, key )
-    else
-       call lua_getfield( l, idx, key )
-    end if
-
-
-    if( lua_type(l, -1) == C_LUA_TTABLE) then
-       call flu_get_scalar_character(l, solver_type, TAG_TYPE, error = err)
-       if ( err /= FPDE_STATUS_OK ) then
-          return
-       else
-          s => solver_new(solver_type)
-          if( .not. associated(s) ) then
-             return
-          end if
-       end if
-    end if
-
-    call s%from_lua(l, error = err)
+    call flu_get(l, idx, key, error = err)
 
     if( err == FPDE_STATUS_OK ) then
-       if(present(error)) error = FPDE_STATUS_OK
-    end if
 
-    call s%init( error = err )
+       if( lua_type(l, -1) == C_LUA_TTABLE) then
+          call flu_get_scalar_character(l, solver_type, TAG_TYPE, error = err)
+          if ( err /= FPDE_STATUS_OK ) then
+             return
+          else
+             s => solver_new(solver_type)
+             if( .not. associated(s) ) then
+                return
+             end if
+          end if
+       end if
+
+       call s%from_lua(l, error = err)
+
+       if( err == FPDE_STATUS_OK ) then
+          call s%init( error = err )
+          if ( err == FPDE_STATUS_OK ) then
+             if(present(error)) error = FPDE_STATUS_OK
+          end if
+       end if
+
+    end if
 
     call lua_pop(l,1)
 

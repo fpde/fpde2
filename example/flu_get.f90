@@ -1,4 +1,5 @@
 program flu_get_program
+  use logger_module
   use flu_module
   use flu_get_module
   use solver_flu_module
@@ -9,6 +10,8 @@ program flu_get_program
   class(solver), pointer :: s
 
   integer :: err
+
+  call set_log_level(FPDE_LOG_DEBUG)
 
   l = luaL_newstate()
 
