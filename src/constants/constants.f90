@@ -9,4 +9,7 @@ module constants_module
   integer, parameter ::&
        NAME_LEN = 100
 
+  integer, parameter ::&
+       MAX_DIM = 10
+
 end module constants_module
