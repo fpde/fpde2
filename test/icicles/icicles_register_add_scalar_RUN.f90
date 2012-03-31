@@ -3,15 +3,15 @@
 !! @author Pawel Biernat <pawel.biernat@gmail.com>
 !! @date   Tue Mar 27 15:29:02 2012
 !!
-!! @brief  test icicles_register%add in scalar version
+!! @brief  test icicles_registry%add in scalar version
 !!
 
-program icicles_register_add_scalar
+program icicles_registry_add_scalar
 
   use constants_module
-  use icicles_register_module
+  use icicles_registry_module
 
-  type(icicles_register) :: reg
+  type(icicles_registry) :: reg
 
   character :: name = "scalar"
   integer :: err
@@ -42,4 +42,4 @@ program icicles_register_add_scalar
   end if
 
 
-end program icicles_register_add_scalar
+end program icicles_registry_add_scalar

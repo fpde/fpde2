@@ -1,9 +1,9 @@
-program icicles_register_create_icicles
+program icicles_registry_create_icicles
   use constants_module
   use icicles_module
-  use icicles_register_module
+  use icicles_registry_module
 
-  type(icicles_register) :: reg
+  type(icicles_registry) :: reg
   type(icicles), pointer :: ic => null()
   integer :: err
 
@@ -18,5 +18,5 @@ program icicles_register_create_icicles
 
   deallocate(ic)
 
-end program icicles_register_create_icicles
+end program icicles_registry_create_icicles
 
