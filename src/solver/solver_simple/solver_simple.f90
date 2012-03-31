@@ -4,7 +4,7 @@ module class_solver_simple
   use logger_module
   use class_solver
   use icicles_module
-  use icicles_register_module
+  use icicles_registry_module
 
   private
 

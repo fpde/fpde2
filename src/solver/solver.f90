@@ -3,7 +3,7 @@ module class_solver
   use constants_module
   use logger_module
   use icicles_module
-  use icicles_register_module
+  use icicles_registry_module
 
   private
 
@@ -11,10 +11,12 @@ module class_solver
 
   type, public, extends(named) :: solver
      type(icicles), pointer :: ic => null()
-     type(icicles_register), pointer :: icreg => null()
+     type(icicles_registry), pointer :: icreg => null()
    contains
      procedure :: init
      procedure :: free
+     ! procedure :: get => get_vector, get_scalar
+     ! procedure :: set => set_vector, set_scalar
      procedure :: info
      procedure :: from_lua => solver_from_lua
   end type solver
