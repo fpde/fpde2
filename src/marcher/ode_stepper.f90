@@ -5,7 +5,11 @@
 !!
 !! @brief  ODE stepper class.
 !!
-!! Generic stepper class. @todo write doc for module methods
+!! Generic stepper class.
+!!
+!! @todo
+!! - [ ] write doc for module methods
+!! - [ ] check which steppers can benefit y' at input and which at output
 !!
 module class_ode_stepper
 

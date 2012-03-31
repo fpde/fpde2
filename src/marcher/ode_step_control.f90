@@ -19,6 +19,12 @@ module class_ode_step_control
    use logger_module
    use class_ode_stepper
 
+
+   integer, public, parameter :: &
+        ODE_STEP_DECREASED = -1,&
+        ODE_STEP_INCREASED = +1,&
+        ODE_STEP_NOCHANGED = 0
+
    private
 
    type, public, extends(named) :: ode_step_control
@@ -65,8 +71,8 @@ contains
       real, intent(inout) :: h
 
       integer :: i, dim, order
-      real, parameter :: min_real=epsilon(1.0) ! smallest positive number added to 1.0 /= 1.0
-      real, parameter :: sfactor=0.9 ! safety factor
+      real, parameter :: min_real=epsilon(1.0) !< smallest positive number added to 1.0 /= 1.0
+      real, parameter :: sfactor=0.9 !< safety factor
       real :: h_old, rmax, d0, r
 
       dim = s % dim
@@ -86,29 +92,29 @@ contains
       if ( rmax > 1.1 ) then
          ! Zmniejszamy krok, nie wiecej niz czynnik 5, lecz sfactor
          ! wicej niz sugeruje skalowanie
-         r = sfactor/rmax**(1.0/order)
+         r = sfactor/rmax**(1.0/order) ! @bug ????
          if ( r < 0.2 ) then
             r = 0.2
          end if
          h = r * h_old;
-         c % status = -1 ! status ujemny oznacza ze krok zostal zmniejszony
+         c % status = ODE_STEP_DECREASED ! status ujemny oznacza ze krok zostal zmniejszony
          return
 
       else if ( rmax < 0.5 ) then
          ! Zwiekszamy krok, nie wiecej niz czynnik 5
-         r = sfactor/rmax**(1.0/(order+1))
+         r = sfactor/rmax**(1.0/(order+1)) ! @bug ?????
          if ( r > 5.0 ) then
             r = 5.0
          else if ( r < 1.0 ) then ! sprawdzamy czy sfactor nie spowodowal zmniejszenia kroku
             r = 1.0
          end if
          h = r * h_old;
-         c % status = 1 ! status dodatni oznacza ze krok zostal zwiekszony
+         c % status = ODE_STEP_INCREASED ! status dodatni oznacza ze krok zostal zwiekszony
          return
 
       else
          ! Krok pozostaje bez zmian
-         c % status = 0 ! status rowny zero oznacza ze krok nie zostal zmieniony
+         c % status = ODE_STEP_NOCHANGED ! status rowny zero oznacza ze krok nie zostal zmieniony
       end if
 
    end subroutine apply

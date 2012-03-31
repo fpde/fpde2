@@ -7,10 +7,14 @@
 !!
 !! Generic marcher class.
 !!
-!! @todo change the name of time interval parameters passed to
+!! @todo
+!! - [ ] change the name of time interval parameters passed to
 !! marcher%apply method
-!!
-!! @todo step_control status c % status == -1
+!! - [ ] step_control status c % status == -1
+!! - [ ] check the validity of goto 100 usage
+!! - [ ] real, pointer, contiguous :: y0(:) => null() causes
+!! compilation error: "If dummy argument is declared CONTIGUOUS,
+!! actual argument must be contiguous as well"
 !!
 module class_ode_marcher
 
@@ -46,7 +50,8 @@ module class_ode_marcher
 
    contains
 
-      !>
+      !> Marcher initialization procedure, includes memory allocation
+      !! for all of the wokspace vectors.
       procedure :: init
       !>
       procedure :: apply
@@ -187,11 +192,11 @@ contains
          ! po wykonaniu apply step control ustawia swoj status
          ! czyli zmienna c % status w zaleznosci czy krok ma
          ! zostac zmieniony badz nie. Przyjeta konwencja:
-         ! c % status = 1   zostal zwiekszony
-         ! c % status =-1   zostal zmniejszony
-         ! c % status = 0   nie zostal zmieniony
+         ! c % status = 1   zostal zwiekszony ODE_STEP_INCREASED
+         ! c % status =-1   zostal zmniejszony ODE_STEP_DECREASED
+         ! c % status = 0   nie zostal zmieniony ODE_STEP_NOCHANGED
 
-         if ( c % status == -1 ) then
+         if ( c % status == ODE_STEP_DECREASED ) then
             ! Sprawdzamy poprawnosc sugerowanego kroku:
             ! czy h0 zostalo 'naprawde' zmniejszone
             ! oraz czy sugerowane h0 zmieni czas t conajmniej
@@ -238,10 +243,25 @@ contains
    subroutine free( m )
       class(ode_marcher), intent(inout) :: m
 
-      deallocate( m % y0 )
-      deallocate( m % yerr )
-      deallocate( m % dydt_in )
-      deallocate( m % dydt_out )
+      if ( associated( m % y0 ) ) then
+         deallocate( m % y0 )
+         m % y0 => null()
+      end if
+
+      if ( associated( m % yerr ) ) then
+         deallocate( m % yerr )
+         m % yerr => null()
+      end if
+
+      if ( associated( m % dydt_in ) ) then
+         deallocate( m % dydt_in )
+         m % dydt_in => null()
+      end if
+
+      if ( associated( m % dydt_out ) ) then
+         deallocate( m % dydt_out )
+         m % dydt_out => null()
+      end if
 
    end subroutine free
 

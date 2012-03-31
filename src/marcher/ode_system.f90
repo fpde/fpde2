@@ -6,14 +6,15 @@
 !! @brief  ODE system class.
 !!
 !! Defines ODE systme via the right hand side of differential equation
-!! @ref func, the right hand side of jacobian @ref jac, dimension of the system @ref dim
-!! and other parameters needed in function and jabobian calling stored
-!! in @ref params pointer. Since the jacobian is not often used, this is an
-!! optional element for this object. Please notice, that if jacobian is defined
-!! this object stores the flag ::jac_exact which should be set to .true.
-!! if the currently associated jacobian function gives the exact (analytically
-!! known) formula. Otherwise, if this flag is set to .false. it is assumed, that
-!! the jacobian function provides only the jacobian approximation.
+!! @ref func(), the right hand side of jacobian @ref jac(), dimension
+!! of the system @ref dim and other parameters needed in function and
+!! jabobian calling stored in @ref params pointer. Since the jacobian
+!! is not often used, this is an optional element for this object.
+!! Please notice, that if jacobian is defined this object stores the flag
+!! @ref jac_exact which should be set to .true. if the currently associated
+!! jacobian function gives the exact (analytically known) formula. Otherwise,
+!! if this flag is set to .false. it is assumed, that the jacobian function
+!! provides only the jacobian approximation.
 !!
 !! @todo to add (if needed) methods that set the individual ode_system components
 !! separately like set_fun, set_jac, etc.
