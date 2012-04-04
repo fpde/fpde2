@@ -11,48 +11,17 @@ module class_solver_simple
   type, public, extends(solver) :: solver_simple
      integer :: nx = 0
    contains
-     procedure :: init
-     procedure :: free
      procedure :: info
-     procedure :: from_lua => solver_from_lua
+     procedure :: from_lua
   end type solver_simple
 
 contains
 
-  subroutine init(s, error)
-    class(solver_simple) :: s
-    integer, optional, intent(out) :: error
-
-    integer :: err
-
-    if(present(error)) error = FPDE_STATUS_ERROR
-
-    if(s%name == "") then
-       s%name = "solver_simple"
-    end if
-
-    call s%solver%init(err)
-
-    if( err /= FPDE_STATUS_OK ) then
-       return
-    end if
-
-    print *, "Initializing solver_simple"
-
-    if(present(error)) error = FPDE_STATUS_OK
-
-  end subroutine init
-
-  subroutine free(s)
-    class(solver_simple) :: s
-
-  end subroutine free
-
-  subroutine solver_from_lua(s, l, error)
+  subroutine from_lua(p, l, error)
     use flu_module
     use flu_get_module
 
-    class(solver_simple) :: s
+    class(solver_simple) :: p
     type(flu) :: l
     integer, intent(out), optional :: error
 
@@ -60,17 +29,17 @@ contains
 
     if(present(error)) error = FPDE_STATUS_ERROR
 
-    call s%solver%from_lua( l, error = err)
+    call p%solver%from_lua( l, error = err)
 
     if(err /= FPDE_STATUS_OK) then
        return
     end if
 
-    call flu_get_scalar_integer(l, s%nx, "nx")
+    call flu_get_scalar_integer(l, p%nx, "nx", default = 0)
 
     if(present(error)) error = FPDE_STATUS_OK
 
-  end subroutine solver_from_lua
+  end subroutine from_lua
 
   subroutine info(s)
     class(solver_simple) :: s

@@ -12,4 +12,10 @@ module constants_module
   integer, parameter ::&
        MAX_DIM = 10
 
+  !> Lua tags
+  character(len=NAME_LEN), parameter ::&
+       TAG_TYPE = "type",&
+       TAG_NAME = "name"
+
+
 end module constants_module

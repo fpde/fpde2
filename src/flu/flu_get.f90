@@ -55,12 +55,13 @@ contains
   !!
   !! @param[out] error if variable corresponding to key is not
   !!
-  subroutine flu_get_scalar_integer( l, i, key, index, error )
+  subroutine flu_get_scalar_integer( l, i, key, index, default, error )
     type(flu) :: l
     character(len=*) :: key
     integer, intent(out) :: i
     integer, optional, intent(out) :: error
     integer, optional, intent(in) :: index
+    integer, optional, intent(in) :: default
 
     integer :: idx, err
 
@@ -78,6 +79,8 @@ contains
        if( lua_type(l, -1) == C_LUA_TNUMBER) then
           i = lua_tointeger(l, -1)
           if(present(error)) error = FPDE_STATUS_OK
+          call lua_pop(l,1)
+          return
        else
           call l%log(FPDE_LOG_ERROR,&
                "Invalid type, should be number ["//trim(key)//"]")
@@ -86,14 +89,17 @@ contains
 
     call lua_pop(l,1)
 
+    if(present(default)) i = default
+
   end subroutine flu_get_scalar_integer
 
 
   !> analogous to flu_get_scalar_integer()
   !! @param[out] str returned integer value
-  subroutine flu_get_scalar_character( l, str, key, index, error )
+  subroutine flu_get_scalar_character( l, str, key, index, default, error )
     type(flu) :: l
     character(len=*), intent(out) :: str
+    character(len=*), optional, intent(in) :: default
     character(len=*), intent(in) :: key
     integer, optional, intent(out) :: error
     integer, optional, intent(in) :: index
@@ -114,6 +120,8 @@ contains
        if( lua_type(l, -1) == C_LUA_TSTRING) then
           call lua_tostring(l, -1, str)
           if(present(error)) error = FPDE_STATUS_OK
+          call lua_pop(l,1)
+          return
        else
           call l%log(FPDE_LOG_ERROR,&
                "Invalid type, should be string ["//trim(key)//"]")
@@ -121,6 +129,8 @@ contains
     end if
 
     call lua_pop(l,1)
+
+    if(present(default)) str = default
 
   end subroutine flu_get_scalar_character
 
