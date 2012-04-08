@@ -72,8 +72,12 @@ contains
        ! log an error.
     case default
        if(present(error)) error = FPDE_STATUS_ERROR
-       allocate(p)
+       nullify(p)
     end select
+
+    if( .not. associated(p) ) then
+       allocate(p)
+    end if
 
   end function platonic_new
 

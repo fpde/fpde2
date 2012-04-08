@@ -130,6 +130,13 @@ module c_lua_module
        integer(c_int), value :: index
      end subroutine c_lua_settable
 
+     function c_lua_absindex(lstate, index) bind(C,name="lua_absindex")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_int) :: c_lua_absindex
+     end function c_lua_absindex
+
      function c_lua_topointer(lstate, index) bind(C,name="lua_topointer")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
@@ -148,6 +155,11 @@ module c_lua_module
        type(c_ptr), value :: lstate
        integer(c_int), value :: int
      end subroutine c_lua_pushinteger
+
+     subroutine c_lua_pushnil(lstate) bind(C,name="lua_pushnil")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+     end subroutine c_lua_pushnil
 
      subroutine c_lua_pushnumber(lstate, val) bind(C,name="lua_pushnumber")
        use iso_c_binding, only: c_ptr, c_double
@@ -239,6 +251,13 @@ module c_lua_module
        type(c_ptr) :: c_luaL_checkudata
        character(c_char) :: name(*)
      end function c_luaL_checkudata
+
+     function c_lua_next(lstate, index) bind(C,name="lua_next")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_int) :: c_lua_next
+     end function c_lua_next
 
   end interface
 

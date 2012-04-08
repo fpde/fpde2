@@ -291,11 +291,26 @@ contains
   end subroutine lua_gettable
 
 
+  subroutine lua_rawget(l,index)
+    type(flu) :: l
+    integer :: index
+    call c_lua_rawget(l%lstate, int(index,c_int))
+  end subroutine lua_rawget
+
+
   subroutine lua_settable(l, index)
     type(flu) :: l
     integer :: index
     call c_lua_settable(l%lstate,int(index,c_int))
   end subroutine lua_settable
+
+
+  function lua_absindex(l, index)
+    type(flu) :: l
+    integer :: index
+    integer :: lua_absindex
+    lua_absindex = c_lua_absindex(l%lstate,int(index,c_int))
+  end function lua_absindex
 
 
   function lua_topointer(l,index)
@@ -311,6 +326,12 @@ contains
     integer :: i
     call c_lua_pushinteger(l%lstate, int(i,c_int))
   end subroutine lua_pushinteger
+
+
+  subroutine lua_pushnil(l)
+    type(flu) :: l
+    call c_lua_pushnil(l%lstate)
+  end subroutine lua_pushnil
 
 
   subroutine lua_pushnumber(l,val)
@@ -486,6 +507,14 @@ contains
     integer :: n, r, f
     lua_pcall = lua_pcallk(l, n, r, f, 0, c_null_ptr)
   end function lua_pcall
+
+  function lua_next(l,index)
+    type(flu) :: l
+    integer :: index
+    integer :: lua_next
+    lua_next = c_lua_next(l%lstate, int(index,c_int))
+  end function lua_next
+
 
 ! !!!!!!!! Some high level lua calls
 

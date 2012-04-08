@@ -57,11 +57,11 @@ contains
   !!
   subroutine flu_get_scalar_integer( l, i, key, index, default, error )
     type(flu) :: l
-    character(len=*) :: key
     integer, intent(out) :: i
-    integer, optional, intent(out) :: error
+    character(len=*), optional :: key
     integer, optional, intent(in) :: index
     integer, optional, intent(in) :: default
+    integer, optional, intent(out) :: error
 
     integer :: idx, err
 
@@ -134,5 +134,124 @@ contains
 
   end subroutine flu_get_scalar_character
 
+  !> Tries to fill in a fortran table of type real from Lua. All
+  !! parameters are analogous to flu_get_scalar_integer.
+  subroutine flu_get_table_real( l, table, key, index, default, error )
+    type(flu) :: l
+    character(len=*) :: key
+    real, intent(out) :: table(:)
+    integer, optional, intent(out) :: error
+    integer, optional, intent(in) :: index
+    real, optional, intent(in) :: default
+
+    integer :: idx, i, err, n
+
+    ! default to error
+    if(present(error)) error = FPDE_STATUS_ERROR
+    err = FPDE_STATUS_OK
+
+    ! assign a default value
+    if(present(default)) table = default
+
+    if(present(index)) then
+       idx = index
+    else
+       idx = -1
+    end if
+
+    call flu_get(l, idx, key, error = err)
+
+    ! check if flu_get succeeded, if not report no error, flu_get
+    ! should report it on its own this.
+    if( err /= FPDE_STATUS_OK ) then !ignore the rest of the function
+                                     !code
+
+    ! check if the type of result of flu_get is a lua table
+    else if( lua_type(l, -1) /= C_LUA_TTABLE ) then
+       call l%log(FPDE_LOG_ERROR,&
+            "Invalid type of ["//trim(key)//"], table expected")
+
+    ! check if fortran table is large enough
+    else if( lua_len(l,-1) > size(table) ) then
+       call l%log(FPDE_LOG_ERROR,&
+            "Lua table ["//trim(key)//"] is larger than fortran table")
+       ! pop the length off the stack
+       call lua_pop(l,-1)
+
+    ! if no errors, then...
+    else
+       ! if we got here, the last result on the stack comes from
+       ! lua_len, so write it to n and pop it
+       n = lua_tointeger(l,-1)
+       call lua_pop(l,1)
+
+       ! copy lua table to fortran table value-by-value
+       do i = 1, n
+
+          ! get i-th element from lua table
+          call lua_pushinteger(l,i)
+          call lua_gettable(l,-2)
+
+          ! check if the i-th element of lua table is a number
+          if( lua_type(l, -1) == C_LUA_TNUMBER ) then
+             ! assign a value from lua table to i-th element of
+             ! fortran table
+             table(i) = lua_tointeger(l, -1)
+          else
+             ! switch the error flag
+             err = FPDE_STATUS_ERROR
+             ! report an error
+             call l%log(FPDE_LOG_ERROR,&
+                  "Invalid type of element of &
+                  &["//trim(key)//"], number expected")
+          end if
+
+          ! pop the i-th element from the lua stack
+          call lua_pop(l,1)
+
+       end do
+
+    end if
+
+    if(present(error)) error = err
+
+    ! pop the result of flu_get
+    call lua_pop(l,1)
+
+  end subroutine flu_get_table_real
+
+
+  subroutine flu_get_table_integer( l, table, key, index, default, error )
+    type(flu) :: l
+    character(len=*) :: key
+    integer, intent(out) :: table(:)
+    integer, optional, intent(out) :: error
+    integer, optional, intent(in) :: index
+    integer, optional, intent(in) :: default
+
+    real :: temp(size(table)), def
+    integer :: idx, err
+
+    if(present(index)) then
+       idx = index
+    else
+       idx = -1
+    end if
+
+    ! call the get_table_real version
+    if(present(default)) then
+       call flu_get_table_real( l,&
+            temp, key, idx, default = real(default), error = err )
+    else
+       call flu_get_table_real( l,&
+            temp, key, idx, error = err )
+    end if
+
+    ! cast the result to int
+    table = int(temp)
+
+    if(present(error)) error = err
+
+  end subroutine flu_get_table_integer
 
 end module flu_get_module
