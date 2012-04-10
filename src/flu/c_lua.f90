@@ -94,12 +94,11 @@ module c_lua_module
        integer(c_int) :: c_lua_type
      end function c_lua_type
 
-     function c_lua_len(lstate, index) bind(C,name="lua_len")
+     subroutine c_lua_len(lstate, index) bind(C,name="lua_len")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
        integer(c_int), value :: index
-       integer(c_int) :: c_lua_len
-     end function c_lua_len
+     end subroutine c_lua_len
 
 
      function c_luaL_loadfilex(lstate, filename, mode) bind(C,name="luaL_loadfilex")
@@ -173,6 +172,15 @@ module c_lua_module
        integer(c_int), value :: idx
        integer(c_int) :: c_lua_tointegerx
      end function c_lua_tointegerx
+
+     !> @todo use two variants, one for quad precision and one for
+     !! double precision.
+     function c_lua_tonumberx(lstate, idx, isnum) bind(C,name="lua_tonumberx")
+       use iso_c_binding, only: c_ptr, c_int, c_double
+       type(c_ptr), value :: lstate, isnum
+       integer(c_int), value :: idx
+       real(c_double) :: c_lua_tonumberx
+     end function c_lua_tonumberx
 
      subroutine c_lua_pushstring(lstate, s) bind(C,name="lua_pushstring")
        use iso_c_binding, only: c_ptr, c_char

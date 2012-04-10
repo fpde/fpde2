@@ -13,7 +13,7 @@ module class_function
 
   character(len=NAME_LEN), parameter, public :: &
        TAG_FUNC_EVOLVED = "evolved",&
-       TAG_FUNC_DERIVATIVE = "derivative"
+       TAG_FUNC_DERIVATIVE = "derivatives"
 
   integer, parameter :: &
        MAX_PARAMETERS = 10
@@ -23,7 +23,8 @@ module class_function
      character(len=NAME_LEN) :: parameters(MAX_PARAMETERS) = ""
      class(boundary), pointer :: boundary => null()
      real, pointer :: val(:) => null()
-     integer, pointer :: derivatives(:,:) => null()
+     integer :: derivatives(5,10) = -1
+     ! integer, pointer :: derivatives(:,:) => null()
    contains
      procedure :: from_lua
   end type func
@@ -35,25 +36,31 @@ contains
     type(flu) :: l
     integer, optional, intent(out) :: error
 
-    integer :: err
-
-    if(present(error)) error = FPDE_LOG_ERROR
+    integer :: err = FPDE_STATUS_ERROR
+    character(len=100) :: name
 
     ! get name
-    call flu_get_scalar_character( l,&
-         p%name, TAG_NAME, error = err, default = "" )
+    call flu_get_atomic( l,&
+         char = p%name,&
+         key = TAG_NAME,&
+         error = err )
 
-    if( err /= FPDE_STATUS_OK ) then
-       if(present(error)) error = err
-       call p%log(FPDE_LOG_ERROR, "Function name not set")
-    end if
+    ! get derivatives vector
+    call flu_get_atomic( l,&
+         val2d = p%derivatives,&
+         key = TAG_FUNC_DERIVATIVE,&
+         error = err )
 
-    ! get parameters
-    call flu_get_scalar_character( l,&
-         p%parameters(FUNC_EVOLVED),&
-         TAG_FUNC_EVOLVED,&
-         error = err,&
-         default = "" )
+    ! if( err /= FPDE_STATUS_OK ) then
+    !    if(present(error)) error = err
+    !    call p%log(FPDE_LOG_ERROR, "Function name not set")
+    ! end if
+
+    ! ! get parameters
+    ! call flu_get_atomic( l,&
+    !      val = p%parameters(FUNC_EVOLVED),&
+    !      key = TAG_FUNC_EVOLVED,&
+    !      error = err )
 
     ! ! get derivative table
     ! call lua_getfield(l,-1,TAG_FUNC_DERIVATIVE)
@@ -73,7 +80,7 @@ contains
     !    call lua_pop(l,1)
     ! end do
 
-    if(present(error)) error = ior( error, err )
+    if(present(error)) error = err
 
   end subroutine from_lua
 

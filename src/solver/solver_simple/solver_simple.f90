@@ -8,6 +8,8 @@ module class_solver_simple
 
   private
 
+  character(len=NAME_LEN), parameter :: TAG_NX = "nx"
+
   type, public, extends(solver) :: solver_simple
      integer :: nx = 0
    contains
@@ -35,7 +37,7 @@ contains
        return
     end if
 
-    call flu_get_scalar_integer(l, p%nx, "nx", default = 0)
+    call flu_get_atomic(l, val = p%nx, key = TAG_NX)
 
     if(present(error)) error = FPDE_STATUS_OK
 

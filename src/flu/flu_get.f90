@@ -6,12 +6,28 @@
 !! @brief Higher level functions used to obtain Lua gloabal variables
 !! and elements from Lua tables.
 !!
+!! The implementation is quite tricky, and uses Fortran 2008
+!! features. Some of them are yet unsupported by ifort or the support
+!! is buggy.
+!!
 module flu_get_module
 
   use flu_module
   use constants_module
 
 contains
+
+
+  function flu_get_len(l, index)
+    type(flu) :: l
+    integer, intent(in) :: index
+    integer :: flu_get_len
+
+    call lua_len(l,index)
+    flu_get_len = lua_tointeger(l,-1)
+    call lua_pop(l,1)
+  end function flu_get_len
+
 
   !> Combines lua_getglobal and lua_getfield
   !!
@@ -32,7 +48,13 @@ contains
     if( index == 0 ) then
        call lua_getglobal( l, key )
     else
-       call lua_getfield( l, index, key )
+       if( lua_type(l,index) == C_LUA_TTABLE ) then
+          call lua_getfield( l, index, key )
+       else
+          call l%log(FPDE_LOG_ERROR,&
+               "Invalid index passed to flu_get")
+          return
+       end if
     end if
 
     if( lua_isnil(l, -1) ) then
@@ -45,168 +67,345 @@ contains
   end subroutine flu_get
 
 
-  !> Tries to read an integer scalar variable from Lua state l
-  !!
-  !! @param l flu object
-  !! @param[out] i returned integer value
-  !! @param[in] key
-  !! @param[in] index|-1 if present and = 0, then key is treated as a
-  !! name of global variable
-  !!
-  !! @param[out] error if variable corresponding to key is not
-  !!
-  subroutine flu_get_scalar_integer( l, i, key, index, default, error )
+  subroutine flu_get_atomic(l,  index, key, char, val, val1d, val2d, error)
     type(flu) :: l
-    integer, intent(out) :: i
-    character(len=*), optional :: key
     integer, optional, intent(in) :: index
-    integer, optional, intent(in) :: default
+    character(len=*), optional, intent(in) :: key
     integer, optional, intent(out) :: error
 
-    integer :: idx, err
+    class(*), intent(out), optional :: val
+    class(*), intent(out), optional :: val1d(:)
+    class(*), intent(out), optional :: val2d(:,:)
+    character(len=*), intent(out), optional :: char
+    integer :: err, idx
 
-    if(present(error)) error = FPDE_STATUS_ERROR
+    err = FPDE_STATUS_ERROR
 
-    if(present(index)) then
+    ! check if optional parameters are passed in right combination
+    if( .not. (present(val)&
+         .neqv. present(val1d)&
+         .neqv. present(val2d)&
+         .neqv. present(char)) ) then
+       call l%log(FPDE_LOG_ERROR,&
+            "Exactly one of char, val, val1d and val2d arguments is permited")
+       if(present(error)) error = err
+       return
+    else if( .not.( present(key) .or. present(index) ) ) then
+       call l%log(FPDE_LOG_ERROR,&
+            "At least one out of key and index arguments is permited")
+       if(present(error)) error = err
+       return
+    end if
+
+    ! assign default value of index to idx
+    if( present(index) ) then
        idx = index
     else
        idx = -1
     end if
 
-    call flu_get(l, idx, key, error = err)
-
-    if( err == FPDE_STATUS_OK ) then
-       if( lua_type(l, -1) == C_LUA_TNUMBER) then
-          i = lua_tointeger(l, -1)
-          if(present(error)) error = FPDE_STATUS_OK
-          call lua_pop(l,1)
-          return
+    ! if key is present, then look for a global variable or a
+    ! component of a table, and push it to the top of the stack
+    if( present(key) ) then
+       if( idx == 0 ) then
+          call lua_getglobal( l, key )
        else
+          if( lua_type(l,idx) == C_LUA_TTABLE ) then
+             call lua_getfield( l, idx, key )
+          else
+             call l%log(FPDE_LOG_ERROR,&
+                  "No table found at the index passed to flu_get_atomic")
+             if(present(error)) error = err
+             return
+          end if
+       end if
+       ! idx is an index of datum pushed by lua_getglobal or
+       ! lua_getfield
+       idx = -1
+       if( lua_type(l,-1) == C_LUA_TNIL ) then
           call l%log(FPDE_LOG_ERROR,&
-               "Invalid type, should be number ["//trim(key)//"]")
+               "No global name or field ["//trim(key)//"] exists")
+          if(present(error)) error = err
+          return
        end if
     end if
 
-    call lua_pop(l,1)
+    if(present(char)) then
+       call flu_get_scalar_character(l,idx,char,err)
 
-    if(present(default)) i = default
+    else if(present(val)) then
+
+       select type(val)
+       type is(integer)
+          call flu_get_scalar_integer(l,idx,val,err)
+       ! type is(character(len=*))
+       !    call flu_get_scalar_character(l,idx,val,err)
+       type is(real)
+          call flu_get_scalar_real(l,idx,val,err)
+       class default
+          call l%log(FPDE_LOG_ERROR,"Unrecognized type")
+       end select
+
+    else if(present(val1d)) then
+
+       select type(val1d)
+       type is(integer)
+          call flu_get_array1d(l,idx,val1d,err)
+       type is(character(len=*))
+          call flu_get_array1d(l,idx,val1d,err)
+       type is(real)
+          call flu_get_array1d(l,idx,val1d,err)
+       class default
+          call l%log(FPDE_LOG_ERROR,"Unrecognized type")
+       end select
+
+    else if(present(val2d)) then
+
+       select type(val2d)
+       type is(integer)
+          call flu_get_array2d(l,idx,val2d,err)
+       type is(character(len=*))
+          call flu_get_array2d(l,idx,val2d,err)
+       type is(real)
+          call flu_get_array2d(l,idx,val2d,err)
+       class default
+          call l%log(FPDE_LOG_ERROR,"Unrecognized type")
+       end select
+
+    end if
+
+    ! if we pushed something on top of the stack we have to pop it
+    if(present(key)) then
+       call lua_pop(l,1)
+    end if
+
+    if(present(error)) error = err
+
+    if(present(key) .and. err /= FPDE_STATUS_OK) then
+       call l%log(FPDE_LOG_ERROR,&
+            "Error(s) occured while reading ["//trim(key)//"]")
+    end if
+
+  end subroutine flu_get_atomic
+
+
+  subroutine flu_get_scalar_integer( l, index, i, error )
+    type(flu) :: l
+    integer, intent(out) :: i
+    integer, intent(in) :: index
+    integer, optional, intent(out) :: error
+
+    if(present(error)) error = FPDE_STATUS_ERROR
+
+    if( lua_type(l, index) == C_LUA_TNUMBER) then
+       i = lua_tointeger(l, index)
+       if(present(error)) error = FPDE_STATUS_OK
+    else
+       call l%log(FPDE_LOG_ERROR,&
+            "Invalid type, number expected")
+    end if
 
   end subroutine flu_get_scalar_integer
 
 
-  !> analogous to flu_get_scalar_integer()
-  !! @param[out] str returned integer value
-  subroutine flu_get_scalar_character( l, str, key, index, default, error )
+  subroutine flu_get_scalar_real( l, index, r, error )
     type(flu) :: l
-    character(len=*), intent(out) :: str
-    character(len=*), optional, intent(in) :: default
-    character(len=*), intent(in) :: key
+    real, intent(out) :: r
+    integer, intent(in) :: index
     integer, optional, intent(out) :: error
-    integer, optional, intent(in) :: index
-
-    integer :: idx, err
 
     if(present(error)) error = FPDE_STATUS_ERROR
 
-    if(present(index)) then
-       idx = index
+    if( lua_type(l, index) == C_LUA_TNUMBER) then
+       r = lua_tointeger(l, index)
+       if(present(error)) error = FPDE_STATUS_OK
     else
-       idx = -1
+       call l%log(FPDE_LOG_ERROR,&
+            "Invalid type, number expected")
     end if
 
-    call flu_get(l, idx, key, error = err)
+  end subroutine flu_get_scalar_real
 
-    if( err == FPDE_STATUS_OK ) then
-       if( lua_type(l, -1) == C_LUA_TSTRING) then
-          call lua_tostring(l, -1, str)
-          if(present(error)) error = FPDE_STATUS_OK
-          call lua_pop(l,1)
-          return
-       else
-          call l%log(FPDE_LOG_ERROR,&
-               "Invalid type, should be string ["//trim(key)//"]")
-       end if
+
+  subroutine flu_get_scalar_character( l, index,  str, error )
+    type(flu) :: l
+    integer, intent(in) :: index
+    character(len=*), intent(out) :: str
+    integer, optional, intent(out) :: error
+
+    if(present(error)) error = FPDE_STATUS_ERROR
+
+    if( lua_type(l, index) == C_LUA_TSTRING) then
+       call lua_tostring(l, index, str)
+       if(present(error)) error = FPDE_STATUS_OK
+       return
+    else
+       call l%log(FPDE_LOG_ERROR,&
+            "Invalid type, should be string")
     end if
-
-    call lua_pop(l,1)
-
-    if(present(default)) str = default
 
   end subroutine flu_get_scalar_character
 
   !> Tries to fill in a fortran table of type real from Lua. All
   !! parameters are analogous to flu_get_scalar_integer.
-  subroutine flu_get_table_real( l, table, key, index, default, error )
+  subroutine flu_get_array1d( l, index, table, error )
     type(flu) :: l
-    character(len=*) :: key
-    real, intent(out) :: table(:)
+    integer, intent(in) :: index
+    class(*), intent(out) :: table(:)
     integer, optional, intent(out) :: error
-    integer, optional, intent(in) :: index
-    real, optional, intent(in) :: default
 
-    integer :: idx, i, err, n
+    character(len=NAME_LEN) :: tp = ""
+    integer :: i, err, n, idx
+
+    ! its safer to operate on absolute index
+    idx = lua_absindex(l,index)
 
     ! default to error
-    if(present(error)) error = FPDE_STATUS_ERROR
-    err = FPDE_STATUS_OK
+    err = FPDE_STATUS_ERROR
 
-    ! assign a default value
-    if(present(default)) table = default
-
-    if(present(index)) then
-       idx = index
-    else
-       idx = -1
-    end if
-
-    call flu_get(l, idx, key, error = err)
-
-    ! check if flu_get succeeded, if not report no error, flu_get
-    ! should report it on its own this.
-    if( err /= FPDE_STATUS_OK ) then !ignore the rest of the function
-                                     !code
-
-    ! check if the type of result of flu_get is a lua table
-    else if( lua_type(l, -1) /= C_LUA_TTABLE ) then
+    if( lua_type(l, idx) /= C_LUA_TTABLE ) then
        call l%log(FPDE_LOG_ERROR,&
-            "Invalid type of ["//trim(key)//"], table expected")
+            "Invalid type, table expected")
 
-    ! check if fortran table is large enough
-    else if( lua_len(l,-1) > size(table) ) then
-       call l%log(FPDE_LOG_ERROR,&
-            "Lua table ["//trim(key)//"] is larger than fortran table")
-       ! pop the length off the stack
-       call lua_pop(l,-1)
-
-    ! if no errors, then...
+       ! if no errors are present, then...
     else
        ! if we got here, the last result on the stack comes from
        ! lua_len, so write it to n and pop it
-       n = lua_tointeger(l,-1)
-       call lua_pop(l,1)
+       n = flu_get_len(l, idx)
 
-       ! copy lua table to fortran table value-by-value
+       ! default to ok
+       err = FPDE_STATUS_OK
+
+       ! check if fortran table is large enough
+       if( n > size(table) ) then
+          ! default to ok
+          err = FPDE_STATUS_ERROR
+
+          call l%log(FPDE_LOG_WARNING,&
+               "Lua table is larger than fortran table")
+          n = size(table)
+       end if
+
+       ! copy lua table to fortran table value-by-value, here we
+       ! assume that the first index is 1 (as in Fortran)
        do i = 1, n
 
           ! get i-th element from lua table
           call lua_pushinteger(l,i)
-          call lua_gettable(l,-2)
+          call lua_gettable(l,idx)
+
+          ! assign a value from lua table to i-th element of
+          ! fortran table
+          select type(table)
+
+             ! integer case
+          type is(integer)
+             ! check if the i-th element of lua table is a number
+             if( lua_type(l, -1) == C_LUA_TNUMBER ) then
+                table(i) = lua_tointeger(l, -1)
+             else
+                ! switch the error flag
+                err = FPDE_STATUS_ERROR
+                ! tp = "integer"
+                exit
+             end if
+
+             ! real case
+          type is(real)
+             if( lua_type(l, -1) == C_LUA_TNUMBER ) then
+                table(i) = lua_tonumber(l,-1)
+             else
+                err = FPDE_STATUS_ERROR
+                ! tp = "number"
+             end if
+
+             ! character case
+          type is(character(len=*))
+             if( lua_type(l, -1) == C_LUA_TSTRING ) then
+                call lua_tostring(l,-1,table(i))
+             else
+                err = FPDE_STATUS_ERROR
+                ! tp = "string"
+                exit
+             end if
+          end select
+
+          call lua_pop(l,1)
+
+       end do
+
+       ! if(err == FPDE_STATUS_ERROR) then
+       !    ! report an error
+       !    call l%log(FPDE_LOG_ERROR,&
+       !         "Invalid type of an element of lua table&
+       !         &, ["//trim(tp)//"] expected")
+       ! end if
+
+    end if
+
+    if(present(error)) error = err
+
+  end subroutine flu_get_array1d
+
+  !> Tries to fill in a fortran table of type real from Lua. All
+  !! parameters are analogous to flu_get_scalar_integer.
+  subroutine flu_get_array2d( l, index, table, error )
+    type(flu) :: l
+    integer, intent(in) :: index
+    class(*), intent(out) :: table(:,:)
+    integer, optional, intent(out) :: error
+
+    character(len=NAME_LEN) :: tp = ""
+    integer :: i, err, n, e, idx
+
+    ! default to error
+    err = FPDE_STATUS_ERROR
+
+    ! its safer to operate on absolute index
+    idx = lua_absindex(l,index)
+
+    if( lua_type(l, idx) /= C_LUA_TTABLE ) then
+       call l%log(FPDE_LOG_ERROR,&
+            "Invalid type, table expected")
+
+    else ! if no errors are present, then...
+       ! if we got here, the last result on the stack comes from
+       ! lua_len, so write it to n and pop it
+       n = flu_get_len(l, idx)
+
+       ! default to ok
+       err = FPDE_STATUS_OK
+
+       ! check if fortran table is large enough
+       if( n > size(table,2) ) then
+          ! default to ok
+          err = FPDE_STATUS_ERROR
+
+          call l%log(FPDE_LOG_WARNING,&
+               "Lua table is larger than fortran table")
+          n = size(table,2)
+       end if
+
+       ! copy lua table to fortran table value-by-value, here we
+       ! assume that the first index is 1 (as in Fortran)
+       do i = 1, n
+
+          ! get i-th element from lua table
+          call lua_pushinteger(l,i)
+          call lua_gettable(l,idx)
 
           ! check if the i-th element of lua table is a number
-          if( lua_type(l, -1) == C_LUA_TNUMBER ) then
-             ! assign a value from lua table to i-th element of
-             ! fortran table
-             table(i) = lua_tointeger(l, -1)
-          else
-             ! switch the error flag
-             err = FPDE_STATUS_ERROR
-             ! report an error
+          if( lua_type(l, -1) /= C_LUA_TTABLE ) then
+             write(tp,'(g0)') i
              call l%log(FPDE_LOG_ERROR,&
-                  "Invalid type of element of &
-                  &["//trim(key)//"], number expected")
+               "Invalid type of an element of lua table: &
+               &[table] expected at position ["//trim(tp)//"]")
+             err = FPDE_STATUS_ERROR
+          else
+             call flu_get_array1d(l,-1,table(:,i),e)
+             if(e /= FPDE_STATUS_OK) err = e
           end if
 
-          ! pop the i-th element from the lua stack
           call lua_pop(l,1)
 
        end do
@@ -215,43 +414,40 @@ contains
 
     if(present(error)) error = err
 
-    ! pop the result of flu_get
-    call lua_pop(l,1)
-
-  end subroutine flu_get_table_real
+  end subroutine flu_get_array2d
 
 
-  subroutine flu_get_table_integer( l, table, key, index, default, error )
-    type(flu) :: l
-    character(len=*) :: key
-    integer, intent(out) :: table(:)
-    integer, optional, intent(out) :: error
-    integer, optional, intent(in) :: index
-    integer, optional, intent(in) :: default
+  ! subroutine flu_get_table_integer( l, table, key, index, default, error )
+  !   type(flu) :: l
+  !   character(len=*) :: key
+  !   integer, intent(out) :: table(:)
+  !   integer, optional, intent(out) :: error
+  !   integer, optional, intent(in) :: index
+  !   integer, optional, intent(in) :: default
 
-    real :: temp(size(table)), def
-    integer :: idx, err
+  !   real :: temp(size(table)), def
+  !   integer :: idx, err
 
-    if(present(index)) then
-       idx = index
-    else
-       idx = -1
-    end if
+  !   if(present(index)) then
+  !      idx = index
+  !   else
+  !      idx = -1
+  !   end if
 
-    ! call the get_table_real version
-    if(present(default)) then
-       call flu_get_table_real( l,&
-            temp, key, idx, default = real(default), error = err )
-    else
-       call flu_get_table_real( l,&
-            temp, key, idx, error = err )
-    end if
+  !   ! call the get_table_real version
+  !   if(present(default)) then
+  !      call flu_get_table_real( l,&
+  !           temp, key, idx, default = real(default), error = err )
+  !   else
+  !      call flu_get_table_real( l,&
+  !           temp, key, idx, error = err )
+  !   end if
 
-    ! cast the result to int
-    table = int(temp)
+  !   ! cast the result to int
+  !   table = int(temp)
 
-    if(present(error)) error = err
+  !   if(present(error)) error = err
 
-  end subroutine flu_get_table_integer
+  ! end subroutine flu_get_table_integer
 
 end module flu_get_module

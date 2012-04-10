@@ -247,11 +247,11 @@ contains
   end function lua_type
 
 
-  function lua_len(l,index)
+  subroutine lua_len(l,index)
     type(flu) :: l
-    integer :: index, lua_len
-    lua_len = c_lua_len(l%lstate, int(index,c_int))
-  end function lua_len
+    integer :: index
+    call c_lua_len(l%lstate, int(index,c_int))
+  end subroutine lua_len
 
 
   !> Tries to load a file and log any lua errors
@@ -343,9 +343,17 @@ contains
 
   function lua_tointeger(l, idx)
     type(flu) :: l
-    integer :: idx, lua_tointeger, isnum
+    integer :: idx, lua_tointeger
     lua_tointeger = c_lua_tointegerx(l%lstate, int(idx,c_int),c_null_ptr)
   end function lua_tointeger
+
+
+  function lua_tonumber(l, idx)
+    type(flu) :: l
+    integer :: idx
+    real :: lua_tonumber
+    lua_tonumber = c_lua_tointegerx(l%lstate, int(idx,c_int),c_null_ptr)
+  end function lua_tonumber
 
 
   !> Corresponds to lua_isnil macro

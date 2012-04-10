@@ -65,7 +65,8 @@ contains
 
     if( err == FPDE_STATUS_OK ) then
        if( lua_type(l, -1) == C_LUA_TTABLE) then
-          call flu_get_scalar_character(l, platonic_type, TAG_TYPE, error = err)
+          call flu_get_atomic(l, &
+               val = platonic_type, key = TAG_TYPE, error = err)
           if ( err /= FPDE_STATUS_OK ) then
              return
           else
@@ -77,7 +78,9 @@ contains
                 return
              else
                 p % type = platonic_type
-                call flu_get_scalar_character(l, p%name, TAG_NAME, default = "")
+                p % name = ""
+                call flu_get_atomic(l,&
+                     val = p%name, key = TAG_NAME)
              end if
           end if
        end if
