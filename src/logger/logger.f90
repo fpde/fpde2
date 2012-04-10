@@ -4,7 +4,6 @@ module logger_module
 
   private
 
-  integer, public, parameter :: FPDE_NAME_LEN = 100
   integer, public, parameter :: FPDE_PATH_LEN = 1000
   integer, public, parameter :: FPDE_MSG_LEN  = 1000
   ! Fortran and Unix file descriptors are equivalent
@@ -24,7 +23,7 @@ module logger_module
   type, public :: named
      integer :: logfile_unit = FPDE_STDOUT !if 0, log will write to logger%unit
      integer :: status = 0       !0 means OK!
-     character(len=FPDE_NAME_LEN) :: name = "" !empty name should produce a warning
+     character(len=NAME_LEN) :: name = "" !empty name should produce a warning
    contains
      ! procedure :: init
      ! procedure :: free
