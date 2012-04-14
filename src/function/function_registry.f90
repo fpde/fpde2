@@ -16,9 +16,6 @@ module class_func_registry
   use flu_module
   use flu_get_module
 
-  !> maximal number of registry entries
-  integer, parameter, private :: MAX_FUNC = 1000
-
   private
 
   !> regenerates the pointers of all named_vectors
@@ -47,6 +44,7 @@ contains
     class(func), pointer :: f
     integer :: i = 0, dummy
     integer :: err
+    character(len=NAME_LEN) :: msg
 
     call p%log(FPDE_LOG_DEBUG, "calling func_registry%from_lua")
 
@@ -57,6 +55,9 @@ contains
     do while( lua_next(l,-2) /= 0 )
        if( lua_type(l,-1) == C_LUA_TTABLE ) then
           i = i+1
+          print *, i
+          call lua_tostring(l,-1, msg)
+          print '(g0)', trim(msg)
           call p%func(i)%from_lua(l, error = err)
        end if
        call lua_pop(l,1)

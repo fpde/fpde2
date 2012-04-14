@@ -17,5 +17,12 @@ module constants_module
        TAG_TYPE = "type",&
        TAG_NAME = "name"
 
+  !> maximal number of functions
+  integer, parameter :: MAX_FUNC = 20
+
+  !> maximal number of functions
+  integer, parameter :: MAX_RK = 5
+
+
 
 end module constants_module

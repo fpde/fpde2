@@ -30,6 +30,7 @@ contains
     use constants_module
     use class_platonic
     use solver_factory
+    use boundary_factory
 
     character(len=*), intent(in) :: id
     integer, optional, intent(out) :: error
@@ -62,20 +63,18 @@ contains
     case( "solver" )
        p => solver_new(id)
 
-       ! to be added later on
-       ! meshes
-       ! case("mesh")
-       !    p => mesh_new(id)
+    case( "boundary" )
+       p => boundary_new(id)
 
        ! default behavior of factory is to nullify, but here we make an
        ! exception and allocate platonic type instead. It will be used to
        ! log an error.
     case default
-       if(present(error)) error = FPDE_STATUS_ERROR
        nullify(p)
     end select
 
     if( .not. associated(p) ) then
+       if(present(error)) error = FPDE_STATUS_ERROR
        allocate(p)
     end if
 

@@ -53,6 +53,8 @@ contains
     ! class(*), pointer :: ptr
     integer :: err, idx
 
+    ! @todo correct index/key combinations to match those of
+    ! flu_get_atomic
     if(present(error)) error = FPDE_STATUS_ERROR
 
     if(present(index)) then
@@ -66,8 +68,11 @@ contains
     if( err == FPDE_STATUS_OK ) then
        if( lua_type(l, -1) == C_LUA_TTABLE) then
           call flu_get_atomic(l, &
-               val = platonic_type, key = TAG_TYPE, error = err)
+               char = platonic_type, key = TAG_TYPE, error = err)
           if ( err /= FPDE_STATUS_OK ) then
+             allocate(p)
+             call p%log(FPDE_LOG_ERROR,&
+                  '"type" was not defined')
              return
           else
              p => platonic_new_module_mp_platonic_new(&

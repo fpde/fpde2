@@ -173,6 +173,15 @@ module c_lua_module
        integer(c_int) :: c_lua_tointegerx
      end function c_lua_tointegerx
 
+
+     function c_lua_toboolean(lstate, idx) bind(C,name="lua_toboolean")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: idx
+       integer(c_int) :: c_lua_toboolean
+     end function c_lua_toboolean
+
+
      !> @todo use two variants, one for quad precision and one for
      !! double precision.
      function c_lua_tonumberx(lstate, idx, isnum) bind(C,name="lua_tonumberx")

@@ -14,7 +14,7 @@ module class_platonic
   private
 
   !> platonic object is a basic object intended to be used with
-  !! fpde. It is suited to be read off from Lua using from_lua
+  !! fpde. It is suited to be read off from Lua using from_lua()
   !! function, and then initialized using init function.
   !!
   !! Means of creating platonic object from scratch are provided by

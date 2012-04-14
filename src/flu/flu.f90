@@ -348,6 +348,20 @@ contains
   end function lua_tointeger
 
 
+  function lua_toboolean(l, idx)
+    type(flu) :: l
+    integer :: idx
+    logical :: lua_toboolean
+
+    if( c_lua_toboolean(l%lstate, int(idx,c_int)) == 1 ) then
+       lua_toboolean = .true.
+    else
+       lua_toboolean = .false.
+    end if
+
+  end function lua_toboolean
+
+
   function lua_tonumber(l, idx)
     type(flu) :: l
     integer :: idx
