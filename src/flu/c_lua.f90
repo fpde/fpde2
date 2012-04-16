@@ -149,11 +149,24 @@ module c_lua_module
        integer(c_int), value :: index
      end subroutine c_lua_rawget
 
+     function c_lua_rawlen(lstate, index) bind(C,name="lua_rawlen")
+       use iso_c_binding, only: c_ptr, c_int, c_size_t
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_size_t) :: c_lua_rawlen
+     end function c_lua_rawlen
+
      subroutine c_lua_pushinteger(lstate, int) bind(C,name="lua_pushinteger")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
        integer(c_int), value :: int
      end subroutine c_lua_pushinteger
+
+     subroutine c_lua_pushboolean(lstate, int) bind(C,name="lua_pushboolean")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: int
+     end subroutine c_lua_pushboolean
 
      subroutine c_lua_pushnil(lstate) bind(C,name="lua_pushnil")
        use iso_c_binding, only: c_ptr, c_int

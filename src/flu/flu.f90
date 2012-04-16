@@ -298,6 +298,14 @@ contains
   end subroutine lua_rawget
 
 
+  function lua_rawlen(l,index)
+    type(flu) :: l
+    integer :: index
+    integer :: lua_rawlen
+    lua_rawlen = c_lua_rawlen(l%lstate, int(index,c_int))
+  end function lua_rawlen
+
+
   subroutine lua_settable(l, index)
     type(flu) :: l
     integer :: index
@@ -326,6 +334,17 @@ contains
     integer :: i
     call c_lua_pushinteger(l%lstate, int(i,c_int))
   end subroutine lua_pushinteger
+
+
+  subroutine lua_pushboolean(l,i)
+    type(flu) :: l
+    logical :: i
+    if( i ) then
+       call c_lua_pushboolean(l%lstate, int(1,c_int))
+    else
+       call c_lua_pushboolean(l%lstate, int(0,c_int))
+    end if
+  end subroutine lua_pushboolean
 
 
   subroutine lua_pushnil(l)
@@ -365,8 +384,8 @@ contains
   function lua_tonumber(l, idx)
     type(flu) :: l
     integer :: idx
-    real :: lua_tonumber
-    lua_tonumber = c_lua_tointegerx(l%lstate, int(idx,c_int),c_null_ptr)
+    real(8) :: lua_tonumber
+    lua_tonumber = c_lua_tonumberx(l%lstate, int(idx,c_int),c_null_ptr)
   end function lua_tonumber
 
 
@@ -392,7 +411,7 @@ contains
   subroutine lua_pushstring(l, str)
     type(flu) :: l
     character(len=*) :: str
-    call c_lua_pushstring(l%lstate, str//c_null_char)
+    call c_lua_pushstring(l%lstate, trim(str)//c_null_char)
   end subroutine lua_pushstring
 
 
@@ -521,6 +540,26 @@ contains
     end if
 
   end function luaL_dofile
+
+
+  !> @return .true. if no problems, .false. otherwise
+  function luaL_dostring(l, str)
+    logical :: luaL_dostring
+    type(flu) :: l
+    integer :: pcall
+    character(len=*) :: str
+
+    luaL_dostring = .false.
+
+    if( luaL_loadstring(l,trim(str)) == LUA_OK ) then
+       pcall = lua_pcall(l,0,C_LUA_MULTRET,0)
+       if( pcall == LUA_OK ) then
+          luaL_dostring = .true.
+          return
+       end if
+    end if
+
+  end function luaL_dostring
 
 
   function lua_pcall(l,n,r,f)

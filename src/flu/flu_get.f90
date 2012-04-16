@@ -24,23 +24,6 @@ module flu_get_module
 
 contains
 
-
-  function flu_get_len(l, index)
-    type(flu) :: l
-    integer, intent(in) :: index
-    integer :: flu_get_len
-
-    if( lua_type(l,-1) /= C_LUA_TTABLE ) then
-       flu_get_len = 0
-    else
-       call lua_len(l,index)
-       flu_get_len = lua_tointeger(l,-1)
-       call lua_pop(l,1)
-    end if
-
-  end function flu_get_len
-
-
   !> Combines lua_getglobal and lua_getfield
   !!
   !! @param key name of field or global variable
@@ -59,20 +42,24 @@ contains
 
     if( index == 0 ) then
        call lua_getglobal( l, key )
+
+    else if( lua_type(l,index) == C_LUA_TTABLE ) then
+       call lua_getfield( l, index, key )
+
     else
-       if( lua_type(l,index) == C_LUA_TTABLE ) then
-          call lua_getfield( l, index, key )
-       else
-          call l%log(FPDE_LOG_INFO,&
-               "Invalid index passed to flu_get")
-          return
-       end if
+       call l%log(FPDE_LOG_INFO,&
+            "There is no table at the stack index passed to flu_get")
+       ! push nil to the stack
+       call lua_pushnil( l )
+       return
+
     end if
 
+    ! if getglobal or getfield was called, check if the value is not
+    ! nil, if it is the case, pop it, otherwise set error to OK
     if( lua_isnil(l, -1) ) then
        call l%log(FPDE_LOG_INFO,&
             "No global name or field ["//trim(key)//"] exists")
-       call lua_pop(l,-1)
     else
        if(present(error)) error = FPDE_STATUS_OK
     end if
@@ -119,30 +106,15 @@ contains
 
     ! if key is present, then look for a global variable or a
     ! component of a table, and push it to the top of the stack
-    !! @todo call lua_get instead
+    !! @todo call flu_get instead
     if( present(key) ) then
-       if( idx == 0 ) then
-          call lua_getglobal( l, key )
-       else
-          if( lua_type(l,idx) == C_LUA_TTABLE ) then
-             call lua_getfield( l, idx, key )
-          else
-             call l%log(FPDE_LOG_ERROR,&
-                  "No table found at the index passed to flu_get_atomic,&
-                  & lookup key was ["//trim(key)//"]")
-             if(present(error)) error = err
-             return
-          end if
-       end if
-       ! idx is an index of datum pushed by lua_getglobal or
-       ! lua_getfield
-       idx = -1
-       if( lua_type(l,-1) == C_LUA_TNIL ) then
-          call l%log(FPDE_LOG_INFO,&
-               "No global name or field ["//trim(key)//"] exists")
+       call flu_get(l,idx,key,err)
+       if( err /= FPDE_STATUS_OK ) then
           if(present(error)) error = err
           call lua_pop(l,1)
           return
+       else
+          idx = -1
        end if
     end if
 
@@ -197,17 +169,19 @@ contains
 
     end if
 
-    ! if we pushed something on top of the stack we have to pop it
-    if(present(key)) then
-       call lua_pop(l,1)
+    call lua_pop(l,1)
+
+    if(err /= FPDE_STATUS_OK) then
+       if(present(key)) then
+          call l%log(FPDE_LOG_ERROR,&
+               "Error(s) occured while reading ["//trim(key)//"]")
+       else
+          call l%log(FPDE_LOG_ERROR,&
+               "Error(s) occured during call to fpde_get_atomic")
+       end if
     end if
 
     if(present(error)) error = err
-
-    if(present(key) .and. err /= FPDE_STATUS_OK) then
-       call l%log(FPDE_LOG_ERROR,&
-            "Error(s) occured while reading ["//trim(key)//"]")
-    end if
 
   end subroutine flu_get_atomic
 
@@ -240,7 +214,7 @@ contains
     if(present(error)) error = FPDE_STATUS_ERROR
 
     if( lua_type(l, index) == C_LUA_TNUMBER) then
-       r = lua_tointeger(l, index)
+       r = lua_tonumber(l, index)
        if(present(error)) error = FPDE_STATUS_OK
     else
        call l%log(FPDE_LOG_ERROR,&
@@ -313,7 +287,7 @@ contains
     else
        ! if we got here, the last result on the stack comes from
        ! lua_len, so write it to n and pop it
-       n = flu_get_len(l, idx)
+       n = lua_rawlen(l, idx)
 
        ! default to ok
        err = FPDE_STATUS_OK
@@ -417,7 +391,7 @@ contains
     else ! if no errors are present, then...
        ! if we got here, the last result on the stack comes from
        ! lua_len, so write it to n and pop it
-       n = flu_get_len(l, idx)
+       n = lua_rawlen(l, idx)
 
        ! default to ok
        err = FPDE_STATUS_OK
