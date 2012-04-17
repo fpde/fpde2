@@ -33,6 +33,7 @@ module logger_module
 
   type, private :: logger_singleton
      integer :: log_level = 1
+     integer :: msg_id = 1
      character(len=FPDE_PATH_LEN) :: path = "log/" !@todo what if this dir do not exists?
    contains
      procedure :: try_write
@@ -72,20 +73,26 @@ contains
 
       select case(lvl)
       case (FPDE_LOG_ERROR)
-         lvl_text = "ERROR"
+         lvl_text = "E"
       case (FPDE_LOG_WARNING)
-         lvl_text = "WARNING"
+         lvl_text = "W"
       case (FPDE_LOG_INFO)
-         lvl_text = "INFO"
+         lvl_text = "I"
       case (FPDE_LOG_DEBUG)
-         lvl_text = "DEBUG"
+         lvl_text = "D"
       case default
-         lvl_text = "UNDEFINED"
+         lvl_text = "?"
       end select
 
       call get_timestamp(timestamp)
 
-      write(text,'(A)') timestamp //  ": " // lvl_text // ": " // msg
+      write(text,'("[",i3,"] ",A15,"[",A1,"] ",A)')&
+           logger%msg_id,&
+           n%name,&
+           lvl_text,&
+           msg
+
+      logger%msg_id = logger%msg_id + 1
 
       call logger%try_write( n%logfile_unit, trim(text), status )
 
