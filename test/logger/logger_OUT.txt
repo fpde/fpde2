@@ -1,21 +1,21 @@
- Logger level:                      1
- Logger path: './'
- Object logfile unit:                     6
- 
- Calling logs with logger level:                      1
- 20120308-235917.851: ERROR     : this is a fancy error log message
- 
- Calling logs with logger level:                      2
- 20120308-235917.851: ERROR     : this is a fancy error log message
- 20120308-235917.851: WARNING   : this is a fancy warning message
- 
- Calling logs with logger level:                      3
- 20120308-235917.851: ERROR     : this is a fancy error log message
- 20120308-235917.851: WARNING   : this is a fancy warning message
- 20120308-235917.851: INFO      : this is a fancy info message
- 
- Calling logs with logger level:                      4
- 20120308-235917.851: ERROR     : this is a fancy error log message
- 20120308-235917.851: WARNING   : this is a fancy warning message
- 20120308-235917.851: INFO      : this is a fancy info message
- 20120308-235917.851: DEBUG     : this is a fancy debug message
+Logger level: 1
+Logger path: './'
+Object logfile unit: 6
+
+Calling logs with logger level: 1
+ [  1]                [E] this is a fancy error log message
+
+Calling logs with logger level: 2
+ [  2]                [E] this is a fancy error log message
+ [  3]                [W] this is a fancy warning message
+
+Calling logs with logger level: 3
+ [  4]                [E] this is a fancy error log message
+ [  5]                [W] this is a fancy warning message
+ [  6]                [I] this is a fancy info message
+
+Calling logs with logger level: 4
+ [  7]                [E] this is a fancy error log message
+ [  8]                [W] this is a fancy warning message
+ [  9]                [I] this is a fancy info message
+ [ 10]                [D] this is a fancy debug message

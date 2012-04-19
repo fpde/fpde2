@@ -22,8 +22,8 @@ program stepper_order_run
    class(odeiv_generic), pointer :: o
    integer :: i, j
    real :: p
-   character(len=FPDE_NAME_LEN) :: s_name(1:2) = [ "rkv65", "rkv65" ]
-   character(len=FPDE_NAME_LEN) :: o_name(1:2) = [ "AREN", "HARM" ]
+   character(len=NAME_LEN) :: s_name(1:2) = [ "rkv65", "rkv65" ]
+   character(len=NAME_LEN) :: o_name(1:2) = [ "AREN", "HARM" ]
 
    print '("#",TR2,3(A,TR7))', "ODEIV","order (computed)","order (expected)"
 

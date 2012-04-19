@@ -9,14 +9,14 @@ program logger_test
 
    logger%path="./"
    o%logfile_unit=FPDE_STDOUT
-   print *, "Logger level: ", logger%log_level
-   print *, "Logger path: ", "'"//trim(logger%path)//"'"
-   print *, "Object logfile unit:", o%logfile_unit
+   print '(*(g0))', "Logger level: ", logger%log_level
+   print '(*(g0))', "Logger path: ", "'"//trim(logger%path)//"'"
+   print '(*(g0))', "Object logfile unit: ", o%logfile_unit
 
    do i=1,4
-      print *,""
+      print '(*(g0))',""
       call set_log_level(ll(i))
-      print *, "Calling logs with logger level: ", logger%log_level
+      print '(*(g0))', "Calling logs with logger level: ", logger%log_level
       call call_logs(o)
    end do
 
@@ -29,7 +29,7 @@ contains
       call o%log(FPDE_LOG_WARNING,"this is a fancy warning message")
       call o%log(FPDE_LOG_INFO,"this is a fancy info message")
       call o%log(FPDE_LOG_DEBUG,"this is a fancy debug message")
-   
+
    end subroutine call_logs
 
 end program logger_test
