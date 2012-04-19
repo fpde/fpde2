@@ -13,6 +13,7 @@ module platonic_from_lua_module
   use flu_get_module
   use class_platonic
   use constants_module
+  !> @todo has to be excluded because of circular dependencies
   ! use platonic_new_module
 
   interface
@@ -63,18 +64,21 @@ contains
        idx = -1
     end if
 
+    ! allocate memory by default
+    allocate(p)
+
     call flu_get(l, idx, key, error = err)
 
     if( err == FPDE_STATUS_OK ) then
        if( lua_type(l, -1) == C_LUA_TTABLE) then
           call flu_get_atomic(l, &
-               char = platonic_type, key = TAG_TYPE, error = err)
+               val = platonic_type, key = TAG_TYPE, error = err)
           if ( err /= FPDE_STATUS_OK ) then
-             allocate(p)
              call p%log(FPDE_LOG_ERROR,&
                   '"type" was not defined')
              return
           else
+             deallocate(p)
              p => platonic_new_module_mp_platonic_new(&
                   platonic_type, error = err)
              if( err /= FPDE_STATUS_OK ) then
@@ -85,7 +89,7 @@ contains
                 p % type = platonic_type
                 p % name = ""
                 call flu_get_atomic(l,&
-                     val = p%name, key = TAG_NAME)
+                     val = p % name, key = TAG_NAME)
              end if
           end if
        end if
@@ -100,6 +104,8 @@ contains
        end if
 
     end if
+
+    if(present(error)) error = err
 
     call lua_pop(l,1)
 

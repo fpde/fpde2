@@ -1,4 +1,4 @@
-module boundary_lr_module
+module boundary_box_module
 
   use constants_module
   use class_boundary
@@ -20,17 +20,18 @@ module boundary_lr_module
   end type entry
 
 
-  type, public, extends(platonic) :: boundary_lr
+  type, public, extends(platonic) :: boundary_box
      type(entry), pointer :: entries(:) => null()
      class(boundary), pointer :: default => null()
    contains
      procedure :: from_lua
-  end type boundary_lr
+     procedure :: get_boundary
+  end type boundary_box
 
 contains
 
   subroutine get_boundary(p, varname, left, right, error)
-    class(boundary_lr) :: p
+    class(boundary_box) :: p
     character(len=*), intent(in) :: varname
     class(boundary), pointer, intent(out), optional :: left, right
     integer, intent(out), optional :: error
@@ -66,8 +67,9 @@ contains
 
   end subroutine get_boundary
 
+
   subroutine from_lua(p, l, error)
-    class(boundary_lr) :: p
+    class(boundary_box) :: p
     type(flu) :: l
     integer, optional, intent(out) :: error
 
@@ -75,12 +77,15 @@ contains
     class(platonic), pointer :: ptr
 
     ! determine if there is a field named default
-    call flu_get(l,-1,TAG_BDRY_DEFAULT,err)
+    call lua_getfield(l,-1,TAG_BDRY_DEFAULT)
+    if( .not. lua_isnil(l,-1) ) err = FPDE_STATUS_OK
+    call lua_pop(l,1)
+
+    ! if such field exists, then
     if( err == FPDE_STATUS_OK ) then
-       call lua_pop(l,1)
        call platonic_from_lua(l, &
             ptr,&
-            key = "default", &
+            key = TAG_BDRY_DEFAULT, &
             index = -1,&
             error = err)
        if( err == FPDE_STATUS_OK ) then
@@ -99,12 +104,12 @@ contains
     ! determine if there is a field named default
     call flu_get(l,-1,TAG_BDRY_SPECIFIC,err)
     if( err == FPDE_STATUS_OK ) then
-       call lua_pop(l,1)
        call p%log(FPDE_LOG_WARNING,&
             "Specific boundary conditions&
             & are not yet implemented and are ignored")
     end if
+    call lua_pop(l,1)
 
-    end subroutine from_lua
+  end subroutine from_lua
 
-end module boundary_lr_module
+end module boundary_box_module

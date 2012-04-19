@@ -15,13 +15,6 @@ module flu_get_module
   use flu_module
   use constants_module
 
-  interface flu_get_scalar
-     module procedure flu_get_scalar_integer
-     module procedure flu_get_scalar_character
-     module procedure flu_get_scalar_real
-     module procedure flu_get_scalar_logical
-  end interface flu_get_scalar
-
 contains
 
   !> Combines lua_getglobal and lua_getfield
@@ -78,6 +71,7 @@ contains
     class(*), intent(out), optional :: val2d(:,:)
     character(len=*), intent(out), optional :: char
     integer :: err, idx
+    logical :: pushed = .false.
 
     err = FPDE_STATUS_ERROR
 
@@ -90,11 +84,6 @@ contains
             "Exactly one of char, val, val1d and val2d arguments is permited")
        if(present(error)) error = err
        return
-    else if( .not.( present(key) .or. present(index) ) ) then
-       call l%log(FPDE_LOG_ERROR,&
-            "At least one out of key and index arguments is permited")
-       if(present(error)) error = err
-       return
     end if
 
     ! assign default value of index to idx
@@ -104,82 +93,38 @@ contains
        idx = -1
     end if
 
+    ! default to ok
+    err = FPDE_STATUS_OK
+
     ! if key is present, then look for a global variable or a
     ! component of a table, and push it to the top of the stack
-    !! @todo call flu_get instead
     if( present(key) ) then
        call flu_get(l,idx,key,err)
-       if( err /= FPDE_STATUS_OK ) then
-          if(present(error)) error = err
-          call lua_pop(l,1)
-          return
-       else
-          idx = -1
+       idx = -1
+    end if
+
+    if(err == FPDE_STATUS_OK) then ! error from flu_get or ok
+
+       !> @todo due to the bug in ifort we have to distinguish between
+       ! characaters and noncharacters, 'char' argument should be deleted
+       ! later when the bug is fixed
+       if(present(char)) then
+          call flu_get_scalar_character(l,idx,char,err)
+
+       else if(present(val)) then
+          call flu_get_scalar(l,idx,val,err)
+
+       else if(present(val1d)) then
+          call flu_get_array1d(l,idx,val1d,err)
+
+       else if(present(val2d)) then
+          call flu_get_array2d(l,idx,val2d,err)
+
        end if
-    end if
-
-    if(present(char)) then
-       call flu_get_scalar(l,idx,char,err)
-
-    else if(present(val)) then
-
-       select type(val)
-       type is(integer)
-          call flu_get_scalar(l,idx,val,err)
-       ! temporarly replaced by "char"
-       ! type is(character(len=*))
-       !    call flu_get_scalar_character(l,idx,val,err)
-       type is(real)
-          call flu_get_scalar(l,idx,val,err)
-       type is(logical)
-          call flu_get_scalar(l,idx,val,err)
-       class default
-          call l%log(FPDE_LOG_ERROR,"Unrecognized type")
-       end select
-
-    else if(present(val1d)) then
-
-       select type(val1d)
-       type is(integer)
-          call flu_get_array1d(l,idx,val1d,err)
-       type is(character(len=*))
-          call flu_get_array1d(l,idx,val1d,err)
-       type is(real)
-          call flu_get_array1d(l,idx,val1d,err)
-       type is(logical)
-          call flu_get_array1d(l,idx,val1d,err)
-       class default
-          call l%log(FPDE_LOG_ERROR,"Unrecognized type")
-       end select
-
-    else if(present(val2d)) then
-
-       select type(val2d)
-       type is(integer)
-          call flu_get_array2d(l,idx,val2d,err)
-       type is(character(len=*))
-          call flu_get_array2d(l,idx,val2d,err)
-       type is(real)
-          call flu_get_array2d(l,idx,val2d,err)
-       type is(logical)
-          call flu_get_array2d(l,idx,val2d,err)
-       class default
-          call l%log(FPDE_LOG_ERROR,"Unrecognized type")
-       end select
 
     end if
 
-    call lua_pop(l,1)
-
-    if(err /= FPDE_STATUS_OK) then
-       if(present(key)) then
-          call l%log(FPDE_LOG_ERROR,&
-               "Error(s) occured while reading ["//trim(key)//"]")
-       else
-          call l%log(FPDE_LOG_ERROR,&
-               "Error(s) occured during call to fpde_get_atomic")
-       end if
-    end if
+    if(present(key)) call lua_pop(l,1)
 
     if(present(error)) error = err
 
@@ -262,6 +207,46 @@ contains
 
   end subroutine flu_get_scalar_character
 
+
+  subroutine flu_get_scalar(l,index,val,error)
+    type(flu) :: l
+    integer, intent(in) :: index
+    class(*), intent(out) :: val
+    integer, optional, intent(out) :: error
+
+    integer :: err
+
+    ! assign a value from lua table to i-th element of
+    ! fortran table
+    select type(val)
+
+       ! integer case
+    type is(integer)
+       call flu_get_scalar_integer(l, index, val, err)
+
+       ! real case
+    type is(real)
+       call flu_get_scalar_real(l, index, val, err)
+
+       ! logical case
+    type is(logical)
+       call flu_get_scalar_logical(l, index, val, err)
+
+       ! character case
+    type is(character(len=*))
+       call flu_get_scalar_character(l, index, val, err)
+
+    class default
+       err = FPDE_STATUS_ERROR
+       call l%log(FPDE_LOG_ERROR,&
+            "Urecognized type passed to flu_get_scalar")
+
+    end select
+
+    if(present(error)) error = err
+
+  end subroutine flu_get_scalar
+
   !> Tries to fill in a fortran table of type real from Lua. All
   !! parameters are analogous to flu_get_scalar_integer.
   subroutine flu_get_array1d( l, index, table, error )
@@ -271,7 +256,7 @@ contains
     integer, optional, intent(out) :: error
 
     character(len=NAME_LEN) :: tp = ""
-    integer :: i, err, n, idx
+    integer :: i, err, err2, n, idx
 
     ! its safer to operate on absolute index
     idx = lua_absindex(l,index)
@@ -285,8 +270,6 @@ contains
 
        ! if no errors are present, then...
     else
-       ! if we got here, the last result on the stack comes from
-       ! lua_len, so write it to n and pop it
        n = lua_rawlen(l, idx)
 
        ! default to ok
@@ -294,9 +277,7 @@ contains
 
        ! check if fortran table is large enough
        if( n > size(table) ) then
-          ! default to ok
           err = FPDE_STATUS_ERROR
-
           call l%log(FPDE_LOG_WARNING,&
                "Lua table is larger than fortran table")
           n = size(table)
@@ -310,56 +291,17 @@ contains
           call lua_pushinteger(l,i)
           call lua_gettable(l,idx)
 
-          ! assign a value from lua table to i-th element of
-          ! fortran table
-          select type(table)
-
-             ! integer case
-          type is(integer)
-             call flu_get_scalar(l,-1,table(i),err)
-             ! ! check if the i-th element of lua table is a number
-             ! if( lua_type(l, -1) == C_LUA_TNUMBER ) then
-             !    table(i) = lua_tointeger(l, -1)
-             ! else
-             !    ! switch the error flag
-             !    err = FPDE_STATUS_ERROR
-             !    ! tp = "integer"
-             !    exit
-             ! end if
-
-             ! real case
-          type is(real)
-             call flu_get_scalar(l,-1,table(i),err)
-             ! if( lua_type(l, -1) == C_LUA_TNUMBER ) then
-             !    table(i) = lua_tonumber(l,-1)
-             ! else
-             !    err = FPDE_STATUS_ERROR
-             !    ! tp = "number"
-             ! end if
-
-             ! character case
-          type is(character(len=*))
-             call flu_get_scalar(l,-1,table(i),err)
-
-             ! if( lua_type(l, -1) == C_LUA_TSTRING ) then
-             !    call lua_tostring(l,-1,table(i))
-             ! else
-             !    err = FPDE_STATUS_ERROR
-             !    ! tp = "string"
-             !    exit
-             ! end if
-          end select
+          call flu_get_scalar(l,-1,table(i),err2)
 
           call lua_pop(l,1)
 
-       end do
+          ! for every element we check if it was read correctly, if
+          ! not, we set appropriate error flag
+          if( err2 /= FPDE_STATUS_OK ) then
+             err = FPDE_STATUS_ERROR
+          end if
 
-       ! if(err == FPDE_STATUS_ERROR) then
-       !    ! report an error
-       !    call l%log(FPDE_LOG_ERROR,&
-       !         "Invalid type of an element of lua table&
-       !         &, ["//trim(tp)//"] expected")
-       ! end if
+       end do
 
     end if
 
@@ -435,38 +377,5 @@ contains
     if(present(error)) error = err
 
   end subroutine flu_get_array2d
-
-  ! subroutine flu_get_table_integer( l, table, key, index, default, error )
-  !   type(flu) :: l
-  !   character(len=*) :: key
-  !   integer, intent(out) :: table(:)
-  !   integer, optional, intent(out) :: error
-  !   integer, optional, intent(in) :: index
-  !   integer, optional, intent(in) :: default
-
-  !   real :: temp(size(table)), def
-  !   integer :: idx, err
-
-  !   if(present(index)) then
-  !      idx = index
-  !   else
-  !      idx = -1
-  !   end if
-
-  !   ! call the get_table_real version
-  !   if(present(default)) then
-  !      call flu_get_table_real( l,&
-  !           temp, key, idx, default = real(default), error = err )
-  !   else
-  !      call flu_get_table_real( l,&
-  !           temp, key, idx, error = err )
-  !   end if
-
-  !   ! cast the result to int
-  !   table = int(temp)
-
-  !   if(present(error)) error = err
-
-  ! end subroutine flu_get_table_integer
 
 end module flu_get_module
