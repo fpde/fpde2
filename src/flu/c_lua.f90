@@ -94,12 +94,11 @@ module c_lua_module
        integer(c_int) :: c_lua_type
      end function c_lua_type
 
-     function c_lua_len(lstate, index) bind(C,name="lua_len")
+     subroutine c_lua_len(lstate, index) bind(C,name="lua_len")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
        integer(c_int), value :: index
-       integer(c_int) :: c_lua_len
-     end function c_lua_len
+     end subroutine c_lua_len
 
 
      function c_luaL_loadfilex(lstate, filename, mode) bind(C,name="luaL_loadfilex")
@@ -130,6 +129,13 @@ module c_lua_module
        integer(c_int), value :: index
      end subroutine c_lua_settable
 
+     function c_lua_absindex(lstate, index) bind(C,name="lua_absindex")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_int) :: c_lua_absindex
+     end function c_lua_absindex
+
      function c_lua_topointer(lstate, index) bind(C,name="lua_topointer")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
@@ -143,11 +149,29 @@ module c_lua_module
        integer(c_int), value :: index
      end subroutine c_lua_rawget
 
+     function c_lua_rawlen(lstate, index) bind(C,name="lua_rawlen")
+       use iso_c_binding, only: c_ptr, c_int, c_size_t
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_size_t) :: c_lua_rawlen
+     end function c_lua_rawlen
+
      subroutine c_lua_pushinteger(lstate, int) bind(C,name="lua_pushinteger")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
        integer(c_int), value :: int
      end subroutine c_lua_pushinteger
+
+     subroutine c_lua_pushboolean(lstate, int) bind(C,name="lua_pushboolean")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: int
+     end subroutine c_lua_pushboolean
+
+     subroutine c_lua_pushnil(lstate) bind(C,name="lua_pushnil")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+     end subroutine c_lua_pushnil
 
      subroutine c_lua_pushnumber(lstate, val) bind(C,name="lua_pushnumber")
        use iso_c_binding, only: c_ptr, c_double
@@ -161,6 +185,24 @@ module c_lua_module
        integer(c_int), value :: idx
        integer(c_int) :: c_lua_tointegerx
      end function c_lua_tointegerx
+
+
+     function c_lua_toboolean(lstate, idx) bind(C,name="lua_toboolean")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: idx
+       integer(c_int) :: c_lua_toboolean
+     end function c_lua_toboolean
+
+
+     !> @todo use two variants, one for quad precision and one for
+     !! double precision.
+     function c_lua_tonumberx(lstate, idx, isnum) bind(C,name="lua_tonumberx")
+       use iso_c_binding, only: c_ptr, c_int, c_double
+       type(c_ptr), value :: lstate, isnum
+       integer(c_int), value :: idx
+       real(c_double) :: c_lua_tonumberx
+     end function c_lua_tonumberx
 
      subroutine c_lua_pushstring(lstate, s) bind(C,name="lua_pushstring")
        use iso_c_binding, only: c_ptr, c_char
@@ -239,6 +281,13 @@ module c_lua_module
        type(c_ptr) :: c_luaL_checkudata
        character(c_char) :: name(*)
      end function c_luaL_checkudata
+
+     function c_lua_next(lstate, index) bind(C,name="lua_next")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_int) :: c_lua_next
+     end function c_lua_next
 
   end interface
 

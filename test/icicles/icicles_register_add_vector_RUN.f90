@@ -3,14 +3,14 @@
 !! @author Pawel Biernat <pawel.biernat@gmail.com>
 !! @date   Tue Mar 27 15:36:05 2012
 !!
-!! @brief adds mixed entries to icicles_register and checks results
+!! @brief adds mixed entries to icicles_registry and checks results
 !!
 
-program icicles_register_add_vector
+program icicles_registry_add_vector
 
-  use icicles_register_module
+  use icicles_registry_module
 
-  type(icicles_register) :: reg
+  type(icicles_registry) :: reg
 
   integer, parameter :: n = 4
   character(len=5) :: name(n) = ["name1","name2","name3","name4"]
@@ -37,4 +37,4 @@ program icicles_register_add_vector
      end if
   end do
 
-end program icicles_register_add_vector
+end program icicles_registry_add_vector

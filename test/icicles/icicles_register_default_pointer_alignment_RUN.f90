@@ -1,10 +1,10 @@
-program icicles_register_default_pointer_alignment
+program icicles_registry_default_pointer_alignment
 
   use constants_module
   use icicles_module
-  use icicles_register_module
+  use icicles_registry_module
 
-  type(icicles_register) :: reg
+  type(icicles_registry) :: reg
   type(icicles), pointer :: ic
 
   integer, parameter :: n = 3   ! maximal n = 9
@@ -15,8 +15,8 @@ program icicles_register_default_pointer_alignment
   integer :: i, s_err, v_err, err, m
   character(len=10) :: str
   real, pointer, contiguous :: x(:)
-  type(named_vector), pointer :: v
-  type(named_scalar), pointer :: s
+  real, pointer :: v(:)
+  real, pointer :: s
 
 
   ln = [(i,i=1,n)]
@@ -48,11 +48,11 @@ program icicles_register_default_pointer_alignment
      call ic%get(name(i), s, error = s_err)
 
      if( v_err == FPDE_STATUS_OK ) then
-        if( any( v%val /= ic%data( sum(ln(1:i-1))+1 : sum(ln(1:i)) ))) then
+        if( any( v /= ic%data( sum(ln(1:i-1))+1 : sum(ln(1:i)) ))) then
            stop 1
         end if
      else if( s_err == FPDE_STATUS_OK ) then
-        if( s%val /= sum( ln(1:i-1)) + 1 ) then
+        if( s /= sum( ln(1:i-1)) + 1 ) then
            stop 2
         end if
      else
@@ -68,9 +68,9 @@ program icicles_register_default_pointer_alignment
      call ic%get(name(i), s, error = s_err)
 
      if( v_err == FPDE_STATUS_OK ) then
-        v%val = -1
+        v = -1
      else if( s_err == FPDE_STATUS_OK ) then
-        s%val = -1
+        s = -1
      else
         stop 4
      end if
@@ -80,4 +80,4 @@ program icicles_register_default_pointer_alignment
      stop 5
   end if
 
-end program icicles_register_default_pointer_alignment
+end program icicles_registry_default_pointer_alignment

@@ -8,7 +8,7 @@
 !! The wrappers are mostly one to one as expected, with few
 !! exceptions. All exceptions are described in comments, and consist
 !! mostly of changing return values from 0 and 1 to .false. and
-!! .true. .
+!! .true. respectively.
 !!
 !! Besides wrappers to some Lua functions, there are also several
 !! implementations of macros defined by lua.h, which are also
@@ -17,20 +17,20 @@
 !!
 !!
 module flu_module
-  use iso_c_binding !, only: c_ptr, c_null_ptr, c_null_char, c_char, c_int
+  use iso_c_binding
   use c_lua_module
   use c_helper_module
   use logger_module
 
 
-  !> lua constants
+  !> lua constants, copied from lua.h
   integer, parameter :: &
        C_LUA_MULTRET = -1,&
        C_LUAI_MAXSTACK = 1000000,&
        C_LUAI_FIRSTPSEUDOINDEX = -C_LUAI_MAXSTACK - 1000,&
        C_LUA_REGISTRYINDEX = C_LUAI_FIRSTPSEUDOINDEX
 
-  !> lua types
+  !> lua types, copied from lua.h
   integer, parameter ::&
        C_LUA_TNONE          =(-1),&
        C_LUA_TNIL           =0,&
@@ -102,6 +102,7 @@ contains
     character(len=2) :: k
     real :: r = 123.
     l%lstate = c_luaL_newstate()
+    l%name = "luavm"
 
     call lua_pushnumber(l,r)
     ! check if the pushed number is unchanged after retrieving it from
@@ -109,7 +110,9 @@ contains
     if ( r /= luaL_checknumber(l,-1) ) then
        write(k,'(i2)') kind(r)
        call l%log(FPDE_LOG_ERROR, "Lua number type is incompatible with real("//k//")")
+       return
     end if
+
   end function luaL_newstate
 
 
@@ -155,7 +158,7 @@ contains
     type(flu) :: l
     integer :: index
     character(len=*) :: name
-    call c_lua_getfield(l%lstate,int(index,c_int),name//c_null_char)
+    call c_lua_getfield(l%lstate,int(index,c_int),trim(name)//c_null_char)
   end subroutine lua_getfield
 
 
@@ -170,7 +173,7 @@ contains
   subroutine lua_getglobal(l, name)
     type(flu) :: l
     character(len=*) :: name
-    call c_lua_getglobal(l%lstate, name//c_null_char)
+    call c_lua_getglobal(l%lstate, trim(name)//c_null_char)
   end subroutine lua_getglobal
 
 
@@ -244,11 +247,11 @@ contains
   end function lua_type
 
 
-  function lua_len(l,index)
+  subroutine lua_len(l,index)
     type(flu) :: l
-    integer :: index, lua_len
-    lua_len = c_lua_len(l%lstate, int(index,c_int))
-  end function lua_len
+    integer :: index
+    call c_lua_len(l%lstate, int(index,c_int))
+  end subroutine lua_len
 
 
   !> Tries to load a file and log any lua errors
@@ -266,7 +269,7 @@ contains
 
     retval = c_luaL_loadfilex_ptr(&
          l%lstate,&
-         filename//c_null_char,&
+         trim(filename)//c_null_char,&
          c_null_ptr)
 
     if( retval == LUA_OK ) then
@@ -288,11 +291,34 @@ contains
   end subroutine lua_gettable
 
 
+  subroutine lua_rawget(l,index)
+    type(flu) :: l
+    integer :: index
+    call c_lua_rawget(l%lstate, int(index,c_int))
+  end subroutine lua_rawget
+
+
+  function lua_rawlen(l,index)
+    type(flu) :: l
+    integer :: index
+    integer :: lua_rawlen
+    lua_rawlen = c_lua_rawlen(l%lstate, int(index,c_int))
+  end function lua_rawlen
+
+
   subroutine lua_settable(l, index)
     type(flu) :: l
     integer :: index
     call c_lua_settable(l%lstate,int(index,c_int))
   end subroutine lua_settable
+
+
+  function lua_absindex(l, index)
+    type(flu) :: l
+    integer :: index
+    integer :: lua_absindex
+    lua_absindex = c_lua_absindex(l%lstate,int(index,c_int))
+  end function lua_absindex
 
 
   function lua_topointer(l,index)
@@ -310,6 +336,23 @@ contains
   end subroutine lua_pushinteger
 
 
+  subroutine lua_pushboolean(l,i)
+    type(flu) :: l
+    logical :: i
+    if( i ) then
+       call c_lua_pushboolean(l%lstate, int(1,c_int))
+    else
+       call c_lua_pushboolean(l%lstate, int(0,c_int))
+    end if
+  end subroutine lua_pushboolean
+
+
+  subroutine lua_pushnil(l)
+    type(flu) :: l
+    call c_lua_pushnil(l%lstate)
+  end subroutine lua_pushnil
+
+
   subroutine lua_pushnumber(l,val)
     type(flu) :: l
     real :: val
@@ -319,15 +362,56 @@ contains
 
   function lua_tointeger(l, idx)
     type(flu) :: l
-    integer :: idx, lua_tointeger, isnum
+    integer :: idx, lua_tointeger
     lua_tointeger = c_lua_tointegerx(l%lstate, int(idx,c_int),c_null_ptr)
   end function lua_tointeger
+
+
+  function lua_toboolean(l, idx)
+    type(flu) :: l
+    integer :: idx
+    logical :: lua_toboolean
+
+    if( c_lua_toboolean(l%lstate, int(idx,c_int)) == 1 ) then
+       lua_toboolean = .true.
+    else
+       lua_toboolean = .false.
+    end if
+
+  end function lua_toboolean
+
+
+  function lua_tonumber(l, idx)
+    type(flu) :: l
+    integer :: idx
+    real(8) :: lua_tonumber
+    lua_tonumber = c_lua_tonumberx(l%lstate, int(idx,c_int),c_null_ptr)
+  end function lua_tonumber
+
+
+  !> Corresponds to lua_isnil macro
+  !!
+  !! @param idx index of element to be checked
+  !!
+  !! @return .true. if element is nil, .false. otherwise
+  !!
+  function lua_isnil(l,idx)
+    type(flu) :: l
+    integer :: idx
+    logical :: lua_isnil
+
+    if( lua_type(l, idx) == C_LUA_TNIL ) then
+       lua_isnil = .true.
+    else
+       lua_isnil = .false.
+    end if
+  end function lua_isnil
 
 
   subroutine lua_pushstring(l, str)
     type(flu) :: l
     character(len=*) :: str
-    call c_lua_pushstring(l%lstate, str//c_null_char)
+    call c_lua_pushstring(l%lstate, trim(str)//c_null_char)
   end subroutine lua_pushstring
 
 
@@ -393,7 +477,7 @@ contains
     type(flu) :: l
     character(len=*) :: name
     logical luaL_newmetatable
-    if( c_luaL_newmetatable(l%lstate, name//c_null_char) == 0 ) then
+    if( c_luaL_newmetatable(l%lstate, trim(name)//c_null_char) == 0 ) then
        luaL_newmetatable = .false.
     else
        luaL_newmetatable = .true.
@@ -458,12 +542,40 @@ contains
   end function luaL_dofile
 
 
+  !> @return .true. if no problems, .false. otherwise
+  function luaL_dostring(l, str)
+    logical :: luaL_dostring
+    type(flu) :: l
+    integer :: pcall
+    character(len=*) :: str
+
+    luaL_dostring = .false.
+
+    if( luaL_loadstring(l,trim(str)) == LUA_OK ) then
+       pcall = lua_pcall(l,0,C_LUA_MULTRET,0)
+       if( pcall == LUA_OK ) then
+          luaL_dostring = .true.
+          return
+       end if
+    end if
+
+  end function luaL_dostring
+
+
   function lua_pcall(l,n,r,f)
     type(flu) :: l
     integer :: lua_pcall
     integer :: n, r, f
     lua_pcall = lua_pcallk(l, n, r, f, 0, c_null_ptr)
   end function lua_pcall
+
+  function lua_next(l,index)
+    type(flu) :: l
+    integer :: index
+    integer :: lua_next
+    lua_next = c_lua_next(l%lstate, int(index,c_int))
+  end function lua_next
+
 
 ! !!!!!!!! Some high level lua calls
 

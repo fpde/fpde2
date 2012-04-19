@@ -9,4 +9,20 @@ module constants_module
   integer, parameter ::&
        NAME_LEN = 100
 
+  integer, parameter ::&
+       MAX_DIM = 10
+
+  !> Lua tags
+  character(len=NAME_LEN), parameter ::&
+       TAG_TYPE = "type",&
+       TAG_NAME = "name"
+
+  !> maximal number of functions
+  integer, parameter :: MAX_FUNC = 20
+
+  !> maximal number of functions
+  integer, parameter :: MAX_RK = 5
+
+
+
 end module constants_module
