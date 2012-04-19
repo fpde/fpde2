@@ -20,10 +20,7 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    if(size(from) == 0) return
-
-    to = -from
-    to(1) = 0.0
+    to = -from(2:)
 
   end subroutine generate_values
 
