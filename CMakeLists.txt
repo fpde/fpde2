@@ -57,7 +57,7 @@ set(Fortran77_DFLAGS "")
 set(Fortran77_OFLAGS "-O3")
 set(Fortran77_PFLAGS "-fp-model strict -double-size 128 -integer-size 64")
 
-set(Fortran90_FLAGS "-fPIC -stand f08 -u -warn all -warn nounused -check all -cpp" )
+set(Fortran90_FLAGS "-fPIC -stand f08 -u -warn all -warn nounused -check all -check nopointers -cpp" )
 set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
 set(Fortran90_OFLAGS "-O3")
 set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 64")

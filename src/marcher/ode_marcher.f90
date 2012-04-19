@@ -37,7 +37,8 @@ module class_ode_marcher
       !> Dimension of ODE system to solve (workspace size).
       integer :: dim = 0
 
-      !> @{      Workspace pointers
+      !! @defgroup workvec Workspace vectors
+      !> @{
       !> Storage of y copy at each apply call
       real, pointer, contiguous :: y0(:)
       !> Estimated error vector

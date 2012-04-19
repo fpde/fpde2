@@ -36,15 +36,15 @@ module class_ode_stepper
       !> Allocates workspace memory for instance of class. Assigns stepper
       !! name, method order and stepper specific flags.
       procedure :: init
-      !> Applies the stepping function to the system of equations defined
-      !! by sys, using the step-size h to advance the system from time t
-      !! and state y to time t+h.
+      !> Applies the stepping function to the system of equations, defined
+      !! by sys, using the step-size h and advances the system from time t
+      !! and state y(t) to time t+h and state y(t+h).
       procedure :: apply
       !> Resets the stepper object (cleans workspace but not frees).
       !! It should be used whenever the next stepper use will not be
       !! a continuation of a previous step.
       procedure :: reset
-      !> Frees all the memory associated with the stepping function.
+      !> Frees all the memory associated with the steper instance.
       procedure :: free
 
    end type ode_stepper

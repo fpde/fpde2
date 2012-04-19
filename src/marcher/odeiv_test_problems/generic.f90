@@ -3,9 +3,10 @@
 !! @author Maciej Maliborski <maciej.maliborski@gmail.com>
 !! @date   Thu Mar 29 19:53:53 2012
 !!
-!! @brief  ODE Initial Value test proble generic object.
+!! @brief  ODE Initial Value test problem generic object.
 !!
-!!
+!! @todo
+!! - [ ] add analytical solution function
 !!
 module class_odeiv_generic
 
@@ -27,6 +28,8 @@ module class_odeiv_generic
       real, pointer, contiguous :: y1(:) => null()
       !> Integration time interval
       real :: t(0:1)=[0.0,0.0]
+      !> Time step size
+      real :: h = 0.0
       !> Flag to indicate if ODEIV problem has an analycial solution
       logical :: analytical_solution = .false.
 
@@ -56,6 +59,7 @@ contains
       print *, 'dim:                       ', odeiv % sys % dim
       print *, 'integration inverval'
       print *, '[t(0),t(1)] =              ', odeiv % t
+      print *, 'integration step size      ', odeiv % h
       print *, 'initial data: y0 =         '
       do j=1,odeiv%sys%dim
          print *, odeiv % y0(j)

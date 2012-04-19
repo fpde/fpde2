@@ -5,11 +5,11 @@
 !!
 !! @brief  ODE step control factory.
 !!
-!! Available types of step control objects
+!! Available types of step control objects:
 !! - standard: four parameter step control object
 !! - scaled:
-!! - standard_y: standard one with parameters a_y=1.0, a_dydt=0.0
-!! - standard_dydt: standard one with parameters a_y=0.0, a_dydt=1.0
+!! - standard_y: standard one with parameters @f$ a_y=1.0, a_dydt=0.0 @f$
+!! - standard_dydt: standard one with parameters @f$ a_y=0.0, a_dydt=1.0 @f$
 !!
 !! @todo write docs
 !!

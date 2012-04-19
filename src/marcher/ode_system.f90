@@ -57,7 +57,7 @@ module class_ode_system
       integer :: dim = 0
       !> ODE parameters required to calculate the right side and jacobian
       !! of the given ODE
-      class(*), pointer :: params => null()
+      class(*), pointer :: params
       !> flag which points if jacobian is analytically known or is approximated
       logical :: jac_exact = .false.
 
@@ -84,7 +84,7 @@ contains
       procedure(fun_interface), pointer, intent(in) :: fun
       procedure(jac_interface), pointer, intent(in), optional :: jac
       integer, intent(in) :: dim
-      class (*), target, intent(in), optional :: params
+      class(*), target, intent(in), optional :: params
 
       sys % dim = dim
 

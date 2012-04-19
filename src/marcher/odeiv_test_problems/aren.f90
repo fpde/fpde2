@@ -41,6 +41,8 @@ contains
       odeiv % y0(3) = 0.0
       odeiv % y0(4) = -2.00158510637908252240537862224
 
+      odeiv % h = 1.0e-4
+
       odeiv % t = [0.0, 17.0652165601579625588917206249]
 
       ! ODE system initialization
@@ -67,6 +69,7 @@ contains
       dydt(2)  = y(4)
       dydt(3)  = y(1) + 2.0*y(4) - mu1*(y(1)+mu)/D1 - mu*(y(1)-mu1)/D2
       dydt(4)  = y(2) - 2.0*y(3) - mu1*y(2)/D1 - mu*y(2)/D2
+
    end subroutine aren_rhs
 
 end module class_odeiv_aren
