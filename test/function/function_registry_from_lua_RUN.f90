@@ -38,7 +38,7 @@ program function_registry_test
   !! func_registry, which may change in future implementations.
   if( err /= FPDE_STATUS_OK ) stop 2
   if( r%n_func /= 2 ) stop 3
-  if( r%fn(1)%name /= "f" ) stop 4
-  if( r%fn(2)%name /= "g" ) stop 4
+  if( r%func(1)%name /= "f" ) stop 4
+  if( r%func(2)%name /= "g" ) stop 4
 
 end program function_registry_test
