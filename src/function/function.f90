@@ -7,6 +7,7 @@ module class_function
   use class_boundary
   use flu_get_module
   use flu_module
+  use helper_module
 
   private
 
@@ -18,32 +19,44 @@ module class_function
        TAG_FUNC_TEMPORAL = "temporal",&
        TAG_FUNC_BOUNDARY = "boundary"
 
-  integer, parameter :: &
-       MAX_PARAMETERS = 10
-
   type, public, extends(platonic) :: func
-     !> treat this function as a scalar?
+     !>
+     !! treat this function as a scalar?
+     !!
      logical :: scalar = .false.
-     !> treat this function as it is to be evolved?
+     !>
+     !! treat this function as it is to be evolved?
+     !!
      logical :: evolved = .true.
-     !> treat this funtcion as a time-like independent variable?
+     !>
+     !! treat this funtcion as a time-like independent variable?
+     !!
      logical :: temporal = .false.
-     !> treat this function as a space-like indepenedent variable?
+     !>
+     !! treat this function as a space-like indepenedent variable?
+     !!
      logical :: spatial = .false.
-     !> boundary conditions for this function
+     !>
+     !!  boundary conditions for this function
+     !!
      type(boundary_box) :: boundary
-     !> pointer to discretized values of this function.
+     !>
+     !! pointer to discretized values of this function.
      !! It should match the values of spatial functions, so that
      !! f%val(n) corresponds to f(x%val(n),y%val(n),z%val(n), ...)
+     !!
      real, pointer :: val(:) => null()
-     ! table of
+     !>
+     !! table of derivatives, the convention is such that
+     !! derivatives(:,n) is a multindex describing the derivative, so
+     !! to describe \$\partial_{x,y}\$ we would use derivatives(:,n)
+     !! == ["x","y","","", ... ,""]
+     !!
      character(len=NAME_LEN), pointer :: derivatives(:,:) => null()
-     !> @todo this is a reference to a lua function which should act
-     !! as an initializer for this function
-     integer :: init_func_reg
    contains
      procedure :: from_lua
      procedure :: info
+     procedure :: d_name
   end type func
 
 contains
@@ -152,5 +165,13 @@ contains
     print '("spatial: ",g0)', p%spatial
   end subroutine info
 
+  function d_name(p,alpha) result(r)
+    class(func) :: p
+    character(len=*) :: alpha(:)
+    character(len=NAME_LEN) :: r
+
+    r = "D(" // trim(p%name) // "," // trim(join(alpha,",")) // ")"
+
+  end function d_name
 
 end module class_function

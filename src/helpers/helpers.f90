@@ -1,5 +1,7 @@
 module helper_module
 
+  use constants_module
+
   public
 
   !> findloc_() tries to emulate the behavior of Fortran 2008 finfloc
@@ -59,9 +61,29 @@ contains
        if( array(i) == val ) return
     end do
 
-    ! produce out of bound value in case of error
-    i = i + 1
+    ! produce out of bound value in case when the searched value is
+    ! not found
+    i = size(array) + 1
 
   end function findloc_first_character
+
+  function join(chars,separator) result(r)
+    character(len=*), intent(in) :: chars(:), separator
+    character(len=NAME_LEN) :: r
+
+    integer :: i, i_max
+
+    r = ""
+
+    i_max = findloc_first(chars,"")-1
+
+    do i = 1, i_max-1
+       write(r,'(*(g0))') trim(r), trim(chars(i)), trim(separator)
+    end do
+
+    write(r,'(*(g0))') trim(r), trim(chars(i_max))
+
+  end function join
+
 
 end module helper_module
