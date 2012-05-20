@@ -35,17 +35,20 @@ module class_ghost
   end type names_mesh
 
   type, public, extends(platonic) :: ghost
-     type(func_registry), pointer :: reg => null()
+     type(func_registry), pointer, private :: reg => null()
      type(names_mesh), private :: meshes(MAX_DIM)
-     real, pointer, private :: temp_array_in(:) => null()
-     real, pointer, private :: temp_array_out(:) => null()
-     real, pointer, private :: temp_array_xgp(:) => null()
+     real, pointer, private :: in(:) => null()
+     real, pointer, private :: out(:) => null()
+     real, pointer, private :: x(:) => null()
      integer, private :: max_ghost_points = 0
      integer, private :: dim = 0
    contains
-     ! procedure :: init
-     ! procedure :: update_derivatives
-     ! procedure :: calculate_derivative_single
+     procedure :: init
+     procedure :: update_derivatives
+     !> @todo [0] make it private
+     procedure :: add_mesh
+     procedure :: set_reg
+     procedure :: calculate_nth_derivative
   end type ghost
 
 contains
@@ -57,25 +60,26 @@ contains
   end subroutine set_reg
 
 
-  subroutine init(g,error)
-    class(ghost), target :: g
+  subroutine init(p,error)
+    class(ghost), target :: p
     integer, optional, intent(out) :: error
 
     integer, pointer :: mgp
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    g%name = "ghost"
+    p%name = "ghost"
 
-    deallocate(g%temp_array_in)
-    deallocate(g%temp_array_out)
+    if(associated(p%in))  deallocate(p%in)
+    if(associated(p%out)) deallocate(p%out)
+    if(associated(p%x))   deallocate(p%x)
 
-    mgp => g%max_ghost_points
-    mgp = g%meshes(1)%m%ghost_points
+    mgp => p%max_ghost_points
+    mgp =  p%meshes(1)%m%ghost_points*(MAX_RK/p%meshes(1)%m%max_derivative + 1)
 
-    allocate( g%temp_array_in (g%reg%nx(1)+2*mgp) )
-    allocate( g%temp_array_out(g%reg%nx(1)+2*mgp) )
-    allocate( g%temp_array_xgp(g%reg%nx(1)+2*mgp) )
+    allocate( p%in (1 - mgp : p%reg%nx(1) + mgp) )
+    allocate( p%out(1 - mgp : p%reg%nx(1) + mgp) )
+    allocate( p%x  (1 - mgp : p%reg%nx(1) + mgp) )
 
   end subroutine init
 
@@ -89,186 +93,337 @@ contains
 
   end subroutine add_mesh
 
+
   !> Function used to update the values of the derivatives designated
-  !! by a combination of alpha and name
+  !! by a combination of alpha and name.
   !!
-  !! @param g
-  !! @param reg
-  !! @param name
-  !! @param alpha
-  !! @param error
+  !! @bug [1] Here we assume that all the components of alpha are the
+  !! same spatial variables, this is a big simplification. In future
+  !! we shall allow mixed derivatives as well. See @todo below.
   !!
-  !! @return
+  !! @todo [1] Propositions of how to implement the mixed
+  !! spatio-temporal derivatives:
   !!
-  subroutine update_derivatives(g, reg, name, alpha, error)
-    class(ghost), target :: g
+  !! 1) If one needs to include a mixed derivative as well, one should
+  !! add the equation for its evolution. i.e. if one needs u_xtx, then
+  !! let v=u_x and add v to rhs. Then
+  !! u_xtx = (u_x)_tx = v_tx = (v_t)_x = (rhs[v])_x
+  !! The same should be done for derivatives of type u_ttt: v=u_t, w =
+  !! v_t etc.
+  !!
+  !! 2) The other, simpler way would be to always commute temporal
+  !! derivative to the beginning and use the rhs to fill it
+  !! in. i.e. use
+  !! u_xtx = u_txx = (u_t)_xx = (rhs[u])_xx
+  !!
+  !! 3) because 1) should be transparent to ghost, and ghost has no
+  !! way to calculate temporal derivative accurately enough, 2) should
+  !! be the default behavior.
+  !!
+  subroutine update_derivatives(this, reg, name, alpha2, error)
+    class(ghost), target :: this
     integer, optional, intent(out) :: error
     type(func_registry) :: reg
-    character(len=*), intent(in), optional, target :: alpha(:,:), name
+    character(len=*), intent(in), optional, target :: alpha2(:,:), name
 
-    character(len=:), pointer :: alpha_first(:), alpha_rest(:), a1
+    character(len=len(alpha2)) ::&
+         alpha(size(alpha2,2)), t_name, x_name
+    character(len=NAME_LEN), allocatable :: x_names(:)
+    integer :: n_alpha2, n_x, n_t = 0, n_blank, i
+    integer :: err
+    type(func), pointer :: x, fun
+    real, pointer :: df(:)
     class(mesh), pointer :: m
-    type(func), pointer :: fn
-    class(boundary), pointer :: bl, br
-    real, pointer :: f(:), x(:), dfdx(:)
-    real, pointer :: in(:), out(:), xgp(:)
-    real, pointer :: in_normal(:), out_normal(:), xgp_normal(:)
-    integer :: n_der, n_alpha, n_ghost_points, i, j, k, err, mesh_max_der
-    integer :: n_f, last, max_gp, mesh_gp
 
-    ! alpha[1]=["x","x",""], alpha[2]=["x","",""], alpha[3]=["x","t","x"] etc.
-    n_der = size(alpha,2)       !size of alpha(1,:)
-    n_alpha = size(alpha,1)     !size of alpha(:,1)
+    ! alpha[1]=["x","x",""], alpha[2]=["x","t",""], etc.
+    n_alpha2 = size(alpha2,2)       ! size of alpha(1,:)
 
-    ! get the function we are going to differentiate
-    call g%reg%get(name = name, f = fn, error = err )
-    f => fn%val
-    n_f = n_f
+    t_name = ""
+    ! get the name of a temporal variable
+    call this%reg%get_temporal(name = t_name, error = err)
+    ! get the first spatial variable
+    call this%reg%get_spatial(names = x_names, error = err)
+    x_name = x_names(1)
+    call this%reg%get(name = x_name, f = x, error = err)
 
-    ! set in/out tables
-    max_gp = g%max_ghost_points
-    in (1-max_gp : n_f+max_gp) => g%temp_array_in
-    out(1-max_gp : n_f+max_gp) => g%temp_array_out
-    xgp(1-max_gp : n_f+max_gp) => g%temp_array_xgp
 
-    ! fill in the out table
-    out(1:n_f) = f
+    ! for each derivative multiindex do
+    do i = 1, n_alpha2
+       alpha = alpha2(:,i)
 
-    if( err /= FPDE_STATUS_OK ) then
-       if(present(error)) error = FPDE_STATUS_ERROR
-       !> @todo log error
-       return
-    end if
+       ! count the spatial and temporal derivatives
+       if( t_name /= "" ) then
+          n_t = count(alpha == t_name)
+       end if
+       n_x = count(alpha == x_name)
+       n_blank = count(alpha == "")
 
-    !> @todo no optimization yet, just traverse all alpha and
-    !! calculate all derivatives
-    do i = 1, n_alpha
-       ! n_ghost_points = m%ghost_points       !number of ghost points
-       ! !needed by this mesh
-       ! mesh_max_der = m%rank
-
-       call g%reg%get(name = name, vec = dfdx, error = err, alpha = alpha(:,i) )
-
-       if( err /= FPDE_STATUS_OK ) then
+       ! complain if there are any other derivatives, not counted by n_t and n_x
+       if (n_t + n_x + n_blank /= size(alpha) )then
+          call this%log(FPDE_STATUS_ERROR,&
+               "Malformed derivative")
           if(present(error)) error = FPDE_STATUS_ERROR
-          !> @todo log error
           return
        end if
 
-       ! alpha_first should be null from the start
-       alpha_first => null()
-       ! alpha_rest points to the nonempty part of alpha
-       last        =  findloc_first( alpha(:,i), "" )
-       last        =  min(last,n_der)
-       alpha_rest  => alpha(1:last,i)
+       select case(n_t)
+       case(0) ! no temporal derivatives
+          call this%reg%get( name = name, f = fun, error = err )
+       case(1) ! one temporal derivative, get f_t
+          call this%reg%get( name = name, f = fun, error = err, alpha = [t_name] )
+       case default ! too many temporal derivatives
+          call this%log(FPDE_STATUS_ERROR,&
+               "Too many temporal derivatives")
+          if(present(error)) error = FPDE_STATUS_ERROR
+          return
+       end select
 
-       !> @todo extract to a separate private function?
-       do
-          ! continue untile end of table is reached
-          if( size(alpha_rest) <= 0 ) exit
-          a1 = alpha_rest(1)
+       ! get the right mesh, as we allow only one spatial variable it
+       ! will be the first mesh in g%meshes, if any
+       !> @todo [2] check null
+       m => this%meshes(1)%m
 
-          ! select an appropriate mesh
-          m => null()
-          do k = 1, size(g%meshes)
-             if( any( g%meshes(k)%names == a1 ) ) then
-                m => g%meshes(k)%m
-             end if
-          end do
+       ! get the storage for the derivative
+       call this%reg%get( name = name, vec = df, error = err, alpha = alpha )
+       ! no storage error, nowhere to put the result
+       if(err /= FPDE_STATUS_OK) then
+          call this%log(FPDE_STATUS_ERROR,&
+               "No storage for the result of derivation")
+          if(present(error)) error = FPDE_STATUS_ERROR
+          return
+       end if
 
-          if( .not. associated(m) ) then
-             if(present(error)) error = FPDE_STATUS_ERROR
-             call g%log(FPDE_LOG_ERROR,&
-                  "No mesh is associated with variable: ["//trim(a1)//"]")
-             return
-          end if
-
-          !> @todo [5] extract the following to a function
-
-          ! get the spatial variable
-          call g%reg%get(name = name, vec = x, error = err)
-          ! copy the spatial variable to xgp
-          xgp(1:n_f) = x
-          ! set the ghost points of xgp
-          xgp(1   : : -1) = xgp(1   :     )
-          xgp(n_f :     ) = xgp(n_f : : -1)
-
-          ! get the rank of the mesh
-          mesh_max_der = m%max_derivative
-          ! get the number of ghost points required by the mesh
-          mesh_gp = m%ghost_points
-
-          ! slect apropriate boundary conditions
-          !> @todo [0] implement get_boundary as a method on func
-          call fn%boundary%get_boundary(a1, bl, br, err)
-
-          ! select the apropriate piece of alpha_rest
-          last = min(&
-               mesh_max_der,&
-               findloc_first( alpha_rest,  a1) - 1,&
-               size(alpha_rest))
-          alpha_first => alpha_rest(1:last)
-
-          !
-          ! at this point we have a mesh (m), number of ghost points
-          ! that are required by it (mesh_gp), boundary conditions (b)
-          ! and a rank of derivative we should calculate
-          ! (alpha_first), so it is time to prepare the proper tables
-          ! for differentiation
-          !
-
-          ! copy output to input
-          in = out
-
-          ! set the values at the ghost points
-          call bl%generate_values(in,in(   1 : 1-mesh_gp   : -1))
-          call br%generate_values(in,in( n_f : n_f+mesh_gp     ))
-
-          ! setup the normalized versions of in, out and xgp.
-          ! Normalized version starts its index from 1 and is used in
-          ! the call to m%diff_global()
-          in_normal (1:n_f+2*mesh_gp) => in ( 1-mesh_gp : n_f+mesh_gp )
-          xgp_normal(1:n_f+2*mesh_gp) => out( 1-mesh_gp : n_f+mesh_gp )
-          out_normal(1:n_f+2*mesh_gp) => xgp( 1-mesh_gp : n_f+mesh_gp )
-
-          ! pretty naive 1d implementation
-          call m%diff_global(   &
-               in_normal ,      &
-               xgp_normal,      &
-               out_normal,      &
-               size(alpha_rest) & !rank of the derivative to calculate
-               )
-
-          ! alpha_rest for the next iteration
-          alpha_rest => alpha_rest(last+1:)
-
-       end do
-
-       dfdx = out(1:n_f)
+       ! fun now has to be differentiated n_x times using a mesh m. We
+       ! need fun instead of fun%val because fun holds the boundary
+       ! conditions, x holds its name which is needed to extract the
+       ! boundary conditions.
+       call this%calculate_nth_derivative(n_x, fun, x, df, m)
 
     end do
 
+    if(present(error)) error = FPDE_STATUS_OK
+
   end subroutine update_derivatives
 
-  ! subroutine calculate_derivative_single(g, in, out, error)
-  !   class(ghost) :: g
-  !   integer, optional, intent(out) :: error
-  !   real, intent(in) :: in(:)
-  !   real, intent(out) :: out(:)
-  !   integer :: err
 
-  !   if(present(error)) error = FPDE_STATUS_ERROR
+  !> Calculates n_der-th derivative of fun with respect to spatial
+  !! variable funx using mesh m. Result is stored in df.
+  !!
+  !! @param n_der integer
+  !! @param fun type(func)
+  !! @param funx type(func)
+  !! @param df real(:)
+  !! @param m class(mesh)
+  !!
+  subroutine calculate_nth_derivative(this, n_der, fun, funx, df, m)
+    class(ghost) :: this
+    integer, intent(in) :: n_der
+    type(func), intent(in), pointer :: fun, funx
+    real, intent(out) :: df(:)
+    class(mesh), intent(in), pointer :: m
 
-  !   ! let d to point to the place D(f,alpha) should be stored
-  !   call g%reg%get(f%name, alpha = alpha, vec = d, error = err)
+    integer :: n_x, n_ghost, n_mesh_der, n_calls, j, n_max_ghost, err, d, lbnd
+    real, pointer :: x(:)
+    class(boundary), pointer :: bl, br
 
-  !   if( err /= FPDE_STATUS_OK ) return
+    ! get the values of the points
+    x => funx%val
+    n_x = size(x)
+
+    ! get the mesh data
+    n_ghost    = m%ghost_points
+    n_mesh_der = m%max_derivative
+
+    ! how many ghost points do we actually need
+    n_calls = n_der/n_mesh_der
+    if( mod(n_der,n_mesh_der) /= 0 ) then
+       n_calls = n_calls + 1
+    end if
+    n_max_ghost = n_calls * n_ghost
+
+    ! get boundary conditions
+    call fun%boundary%get_boundary(funx%name, bl, br, error = err)
+
+    ! copy the interior values
+    this%x  (1:n_x) = x(1:n_x)
+    this%out(1:n_x) = fun%val(1:n_x)
+
+    ! fill in the ghost points:
+    lbnd = lbound(this%x,1)
+    this%x(0     : lbnd : -1) = 2*x( 1 ) - x(2     :     )
+    this%x(n_x+1 :          ) = 2*x(n_x) - x(n_x-1 : : -1)
+    call bl%generate_values(&
+         this%out(1:n_x), this%out(   0   : lbnd : -1 ))
+    call br%generate_values(&
+         this%out(n_x:1:-1), this%out( n_x+1 :           ))
+
+    ! do the differentiation n_calls-times
+    j = n_der ! number of differentiations left to perform
+    do
+       d = min(j, n_mesh_der)
+       if( d < 1 ) exit ! differentiation is done
+       this%in = this%out ! copy output to input
+       call m%diff_global(&
+            this%in ( 1-n_max_ghost: n_x + n_max_ghost ),&
+            this%x  ( 1-n_max_ghost: n_x + n_max_ghost ),&
+            this%out( 1-n_max_ghost: n_x + n_max_ghost ),&
+            d )
+       j = j - d
+    end do
+
+    ! copy the results to df
+    df = this%out(1:n_x)
+
+  end subroutine calculate_nth_derivative
 
 
+    ! character(len=:), pointer :: alpha_first(:), alpha_rest(:), a1
+    ! class(mesh), pointer :: m
+    ! type(func), pointer :: fn
+    ! class(boundary), pointer :: bl, br
+    ! real, pointer :: f(:), x(:), dfdx(:)
+    ! real, pointer :: in_normal(:), out_normal(:), x_normal(:)
+    ! integer :: n_der, n_alpha, n_ghost_points, i, j, k, err, mesh_max_der
+    ! integer :: n_f, last, max_gp, mesh_gp
 
-  ! end subroutine calculate_derivative_single
+    ! ! alpha[1]=["x","x",""], alpha[2]=["x","",""], etc.
+    ! n_der = size(alpha,2)       !size of alpha(1,:)
+    ! n_alpha = size(alpha,1)     !size of alpha(:,1)
+
+    ! ! get the function we are going to differentiate
+    ! call g%reg%get(name = name, f = fn, error = err )
+    ! f => fn%val
+    ! n_f = n_f
+
+    ! ! slect apropriate boundary conditions
+    ! !> @todo [0] implement get_boundary as a method on func
+    ! !> @todo [0] catch error
+    ! call fn%boundary%get_boundary(a1, bl, br, error = err)
+    ! ! set the values at the ghost points
+    ! call bl%generate_values(g%in,g%in(   1 : 1   - max_gp : -1))
+    ! call br%generate_values(g%in,g%in( n_f : n_f + max_gp     ))
+
+    ! ! set in/out tables
+    ! max_gp = g%max_ghost_points
+
+    ! ! fill in the out table
+    ! g%out(1:n_f) = f
+
+    ! if( err /= FPDE_STATUS_OK ) then
+    !    if(present(error)) error = FPDE_STATUS_ERROR
+    !    !> @todo log error
+    !    return
+    ! end if
+
+    ! !> @todo no optimization yet, just traverse all alpha and
+    ! !! calculate all derivatives
+    ! do i = 1, n_alpha
+    !    ! n_ghost_points = m%ghost_points       !number of ghost points
+    !    ! !needed by this mesh
+    !    ! mesh_max_der = m%rank
+
+    !    call g%reg%get(name = name, vec = dfdx, error = err, alpha = alpha(:,i) )
+
+    !    if( err /= FPDE_STATUS_OK ) then
+    !       if(present(error)) error = FPDE_STATUS_ERROR
+    !       !> @todo log error
+    !       return
+    !    end if
+
+    !    ! alpha_first should be null from the start
+    !    alpha_first => null()
+    !    ! alpha_rest points to the nonempty part of alpha
+    !    last        =  findloc_first( alpha(:,i), "" )
+    !    last        =  min(last,n_der)
+    !    alpha_rest  => alpha(1:last,i)
+
+    !    !> @todo extract to a separate private function?
+    !    do
+    !       ! continue until end of table is reached
+    !       if( size(alpha_rest) <= 0 ) exit
+    !       a1 = alpha_rest(1)
+
+    !       ! select an appropriate mesh
+    !       m => null()
+    !       do k = 1, size(g%meshes)
+    !          if( any( g%meshes(k)%names == a1 ) ) then
+    !             m => g%meshes(k)%m
+    !          end if
+    !       end do
+
+    !       if( .not. associated(m) ) then
+    !          if(present(error)) error = FPDE_STATUS_ERROR
+    !          call g%log(FPDE_LOG_ERROR,&
+    !               "No mesh is associated with variable: ["//trim(a1)//"]")
+    !          return
+    !       end if
+
+    !       !> @todo [5] extract the following to a function
+
+    !       ! get the spatial variable
+    !       call g%reg%get(name = name, vec = x, error = err)
+    !       ! copy the spatial variable to x
+    !       g%x(1:n_f) = x
+    !       ! set the ghost points of x
+    !       g%x(1   : : -1) = x(1   :     )
+    !       g%x(n_f :     ) = x(n_f : : -1)
+
+    !       ! get the max derivative the mesh can calculate in one call
+    !       mesh_max_der = m%max_derivative
+    !       ! get the number of ghost points required by the mesh
+    !       mesh_gp = m%ghost_points
+
+    !       !
+    !       ! at this point we have a mesh (m), number of ghost points
+    !       ! that are required by it (mesh_gp), boundary conditions (b)
+    !       ! and a rank of derivative we should calculate
+    !       ! (alpha_first), so it is time to prepare the proper tables
+    !       ! for differentiation
+    !       !
+
+    !       ! copy output to input
+    !       g%in = g%out
+
+    !       ! setup the normalized versions of in, out and x.
+    !       ! Normalized version starts its index from 1 and is used in
+    !       ! the call to m%diff_global()
+    !       in_normal (1:n_f+2*mesh_gp) => g%in ( 1-mesh_gp : n_f+mesh_gp )
+    !       x_normal  (1:n_f+2*mesh_gp) => g%out( 1-mesh_gp : n_f+mesh_gp )
+    !       out_normal(1:n_f+2*mesh_gp) => g%x  ( 1-mesh_gp : n_f+mesh_gp )
+
+    !       ! select the apropriate piece of alpha_rest
+    !       last = min(&
+    !            mesh_max_der,&
+    !            findloc_first( alpha_rest,  a1) - 1,&
+    !            size(alpha_rest))
+    !       alpha_first => alpha_rest(1:last)
+
+    !       !> @bug [10] the whole g%in/out/x should not be passed, it
+    !       !! should be only a part depending on the mesh_gp.
+    !       !! It is especially important for spectral mesh.
+    !       ! pretty naive 1d implementation
+    !       call m%diff_global(   &
+    !            g%in,      &
+    !            g%x,      &
+    !            g%out,      &
+    !            last & !rank of the derivative to calculate
+    !            )
+
+    !       ! alpha_rest for the next iteration
+    !       alpha_rest => alpha_rest(last+1:)
+
+    !    end do
+
+    !    dfdx = g%out(1:n_f)
+
+    ! end do
+
+  ! end subroutine update_derivatives
 
 
+  ! subroutine fill_in_temporary_arrays_1d(this, alpha_rest, )
+
+  ! end subroutine fill_in_temporary_arrays_1d
 
 
     ! 1) check if d(:) corresponds to fun (by comparing their names)
@@ -305,9 +460,9 @@ contains
   !!
   !! @param varname name of a variable corresponding to the given mesh
   !!
-  !! @return number of layers
+  !! @return number of calls to diff_global
   !!
-  function get_num_layers(alpha, rk, varname) result(r)
+  function max_calls_to_diff_global(alpha, rk, varname) result(r)
     character(len=*), intent(in) :: alpha(:)
     integer, intent(in) :: rk
     character(len=*), intent(in) :: varname
@@ -325,6 +480,6 @@ contains
        end if
     end do
 
-  end function get_num_layers
+  end function max_calls_to_diff_global
 
 end module class_ghost

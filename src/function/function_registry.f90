@@ -31,10 +31,8 @@ module class_func_registry
      !! arrangements, it is written by the solver
      integer, pointer :: nx(:) => null()
    contains
-     ! procedure :: add
      ! procedure :: create_icicles
-     ! procedure :: set_pointers
-     ! procedure :: info
+     procedure :: set_pointers
      ! procedure :: sort
      procedure :: set_nx
      procedure :: init
@@ -43,10 +41,73 @@ module class_func_registry
      procedure :: delete
      procedure :: from_lua
      procedure, private :: d_create
+     procedure :: get_temporal
+     procedure :: get_spatial
+     procedure :: total_size
   end type func_registry
 
 contains
 
+  !> Calculates the total size of a table to contain all the elements
+  !> of function_registry based on func_registry%nx.
+  !!
+  !! @return total size required for a table to host all the elements
+  !! of func_registry.
+  !!
+  function total_size(this) result(s)
+    class(func_registry), target :: this
+    integer :: s
+
+    integer :: nx2, nf
+    logical, pointer :: scal(:)
+
+    ! trick
+    nx2 = int(exp(sum(log(real(this%nx)))))
+
+    nf = this%n_func
+    scal => this%func(1:nf)%scalar
+
+    s = count(scal) + nx2*count(.not. scal)
+
+  end function total_size
+
+  !> Sets the pointers in func_registry%func(:) to appropriate
+  !! positions in a
+  !!
+  !! @param a
+  !!
+  !! @todo allocate a?
+  !! @todo more arguments?
+  !! @todo sorting? evolved come first?
+  !!
+  subroutine set_pointers(this, a)
+    class(func_registry), target :: this
+    real, target :: a(:)
+
+    type(func), pointer :: f
+    integer :: i, j, nx2
+
+    ! trick
+    nx2 = int(exp(sum(log(real(this%nx)))))
+
+    if( this%total_size() > size(a)) return
+
+    j = 1
+    do i = 1, this%n_func
+       f => this%func(i)
+       if(f%scalar) then
+          f%val(1:1) => a(j:j)
+          j = j+1
+       else
+          f%val => a(j:j+nx2-1)
+          j = j+nx2
+       end if
+    end do
+
+  end subroutine set_pointers
+
+
+  !> @todo [2] read nx using from_lua?
   subroutine set_nx(p, nx)
     class(func_registry) :: p
     integer, intent(in) :: nx(:)
@@ -70,22 +131,25 @@ contains
     integer :: err = FPDE_STATUS_OK, err2
     character(len=NAME_LEN) :: msg
 
-    allocate(f)
 
     if( lua_type(l,-1) == C_LUA_TTABLE ) then
        n = lua_rawlen(l,-1)
 
        do i = 1, n
+          allocate(f)
           call lua_pushinteger(l,i)
           call lua_gettable(l,-2)
           call f%from_lua(l, err2)
+          !> @todo [5] get n_points if f%spatial == true here?
+          !! Or completely remove n_points and alike from function
+          !! registry? At which point should we load the initial data?
           call p%insert(f)
           call lua_pop(l,1)
           if(err2 /= FPDE_STATUS_OK) err = err2
+          deallocate(f)
        end do
     end if
 
-    deallocate(f)
 
     if(present(error)) error = err
 
@@ -111,13 +175,13 @@ contains
 
     i = findloc_first(names,name)
     if( present(alpha) ) then
-       i = findloc_first( names, f%d_name(alpha) )
+       i = findloc_first( names, f_temp%d_name(alpha) )
     end if
 
     if( i > p%n_func) then
        if(present(error)) error = FPDE_STATUS_ERROR
        call p%log(FPDE_LOG_ERROR,&
-            "There is no function named ["//name//"] in the registry")
+            "There is no function named ["//trim(name)//"] in the registry")
        return
     end if
 
@@ -128,6 +192,58 @@ contains
     if( present( scal) ) scal=> f_temp%val(i)
     if( present( index)) index= i
   end subroutine get
+
+  !> gets the name, value and type(func) of the temporal variable
+  !!
+  subroutine get_temporal(p, name, scal, f, error)
+    class(func_registry), target :: p
+    character(len=*), optional, intent(out) :: name
+    real, pointer, optional, intent(out) :: scal
+    type(func), pointer, optional, intent(out) :: f
+    integer, optional, intent(out) :: error
+
+    integer :: i
+
+    i = findloc_first(p%func%temporal, .true.)
+
+    if( i > p%n_func ) then
+       if( present(error) ) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    if( present( f    )) f    => p%func(i)
+    if( present( scal )) scal => p%func(i)%val(1)
+    if( present( name )) name =  p%func(i)%name
+
+    if( present(error) ) error = FPDE_STATUS_OK
+
+  end subroutine get_temporal
+
+  !> gets the names of all the spatial variables
+  !!
+  subroutine get_spatial(p, names, error)
+    class(func_registry), target :: p
+    character(len=*), allocatable, intent(out) :: names(:)
+    integer, optional, intent(out) :: error
+
+    integer, allocatable :: i(:)
+    integer :: j
+
+    allocate(i(count(p%func%spatial)))
+    i = findloc_(p%func%spatial, .true.)
+
+    ! reallocate the table if needed
+    if( allocated(names) ) deallocate(names)
+    allocate(names(size(i)))
+
+    do j = 1, size(i)
+       names(i) = p%func(i)%name
+    end do
+
+    if( present(error) ) error = FPDE_STATUS_OK
+
+  end subroutine get_spatial
+
 
 
   subroutine insert(p, f, name, index, error)
@@ -232,7 +348,7 @@ contains
   end subroutine d_create
 
   subroutine init(p, error)
-    class(func_registry) :: p
+    class(func_registry), target :: p
     integer, optional, intent(out) :: error
 
     integer :: n_func, err, err2, i

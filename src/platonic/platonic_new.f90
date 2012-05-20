@@ -3,7 +3,9 @@
 !! @author Pawel Biernat <pawel.biernat@gmail.com>
 !! @date   Wed Apr  4 16:07:57 2012
 !!
-!! @brief
+!! @brief @todo, rewrite platonic_from_lua to resemble flu_get, and
+!! use a specific factory as an additional argument, this will render
+!! the tric with platonic_new_module_mp_platonic_new() unnecessary
 !!
 !!
 !!

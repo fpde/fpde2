@@ -13,6 +13,7 @@ module helper_module
   end interface findloc_
 
   interface findloc_first
+     module procedure findloc_first_logical
      module procedure findloc_first_character
   end interface findloc_first
 
@@ -44,7 +45,7 @@ contains
     n = count(array .eqv. val)
     allocate(r(n))
 
-    do i = 1, size(array)
+    do i = lbound(array,1), ubound(array,1)
        if( array(i) .eqv. val ) then
           r(j) = i
           j = j + 1
@@ -53,6 +54,28 @@ contains
 
   end function findloc_logical
 
+
+  function findloc_first_logical ( array, val ) result(i)
+    logical, intent(in) :: array(:)
+    logical, optional, intent(in) :: val
+    integer :: i
+
+    logical :: v = .true.
+
+    if(present(val)) v = val
+
+    do i = lbound(array,1), ubound(array,1)
+       if( array(i) .eqv. v ) return
+    end do
+
+    ! produce out of bound value in case when the searched value is
+    ! not found
+    i = size(array) + 1
+
+  end function findloc_first_logical
+
+
+  !> @todo [0] implement as a call to findloc_first_logical
   function findloc_first_character ( array, val ) result(i)
     character(len=*), intent(in) :: array(:), val
     integer :: i
@@ -66,6 +89,7 @@ contains
     i = size(array) + 1
 
   end function findloc_first_character
+
 
   function join(chars,separator) result(r)
     character(len=*), intent(in) :: chars(:), separator

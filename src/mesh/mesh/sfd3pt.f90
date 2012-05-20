@@ -26,7 +26,7 @@ module class_mesh_sfd3pt
 contains
 
   subroutine init( p, error )
-    class(mesh_sfd3pt), intent(inout) :: p
+    class(mesh_sfd3pt), target :: p
     integer, optional, intent(out) :: error
 
     if(present(error)) error = FPDE_STATUS_OK
