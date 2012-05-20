@@ -4,6 +4,7 @@ module boundary_factory
   use class_boundary
   use class_solver_simple
   use class_boundary_dirichlet
+  use class_boundary_periodic
 
 contains
 
@@ -17,6 +18,8 @@ contains
     select case(trim(id))
     case( "boundary_dirichlet" )
        allocate( boundary_dirichlet :: s )
+    case( "boundary_periodic" )
+       allocate( boundary_periodic :: s )
     case default
        if(present(error)) error = FPDE_STATUS_ERROR
        nullify( s )

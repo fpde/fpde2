@@ -11,9 +11,17 @@ module class_boundary
   end type boundary
 
   interface
-     subroutine gen_val(p, from, to, error)
+     !> Assuming the function values are stored in \$ f_n \$ with
+     !! \$ n=1,2,...,n \$ fills in the points to the _left_ of \$ f_{1} \$
+     !! i.e. \$ f_0, f_{-1}, f_{-2} \$.
+     !!
+     !! @param from[in] table containing values of f_{1}, f_{ 2}, f_{ 3}, ...
+     !! @param to[out] table containing values of  f_{0}, f_{-1}, f_{-2}, ...
+     !! @param error
+     !!
+     subroutine gen_val(this, from, to, error)
        import boundary
-       class(boundary) :: p
+       class(boundary) :: this
        integer, intent(out), optional :: error
        real, intent(in) :: from(:)
        real, intent(out) :: to(:)
