@@ -33,7 +33,7 @@ contains
     call lua_add_to_metatable(l, FLU_ARRAY_METATABLE,"__index",index)
     call lua_add_to_metatable(l, FLU_ARRAY_METATABLE,"__newindex",newindex)
     call lua_add_to_metatable(l, FLU_ARRAY_METATABLE,"__len",len)
-    call lua_getfield(l, C_LUA_REGISTRYINDEX, FLU_ARRAY_METATABLE)
+    call lua_getfield(l, LUA_REGISTRYINDEX, FLU_ARRAY_METATABLE)
     call lua_setmetatable(l,-2)
     call lua_setglobal(l,name)
 

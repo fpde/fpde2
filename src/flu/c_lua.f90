@@ -21,12 +21,21 @@ module c_lua_module
        character(kind=c_char) :: str(*)
      end function c_luaL_loadstring
 
+     ! lua52 only
      function c_lua_pcallk(lstate, nargs, nresults, errfunc, ctx, k) bind(C,name="lua_pcallk")
        use iso_c_binding, only: c_ptr, c_int
        integer(c_int) :: c_lua_pcallk
        type(c_ptr), value :: lstate, k
        integer(c_int), value :: nargs, nresults, errfunc, ctx
      end function c_lua_pcallk
+
+     ! lua51
+     function c_lua_pcall(lstate, nargs, nresults, errfunc) bind(C,name="lua_pcall")
+       use iso_c_binding, only: c_ptr, c_int
+       integer(c_int) :: c_lua_pcall
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: nargs, nresults, errfunc
+     end function c_lua_pcall
 
      subroutine c_lua_getfield(lstate,index,name) bind(C,name="lua_getfield")
        use iso_c_binding, only: c_ptr, c_char, c_int
@@ -100,15 +109,15 @@ module c_lua_module
        integer(c_int), value :: index
      end subroutine c_lua_len
 
+     ! function c_luaL_loadfilex(lstate, filename, mode) bind(C,name="luaL_loadfilex")
+     !   use iso_c_binding, only: c_ptr, c_char, c_int
+     !   integer(c_int) :: c_luaL_loadfilex
+     !   type(c_ptr), value :: lstate
+     !   ! type(c_ptr), value :: mode
+     !   character(kind=c_char) :: filename(*), mode(*)
+     ! end function c_luaL_loadfilex
 
-     function c_luaL_loadfilex(lstate, filename, mode) bind(C,name="luaL_loadfilex")
-       use iso_c_binding, only: c_ptr, c_char, c_int
-       integer(c_int) :: c_luaL_loadfilex
-       type(c_ptr), value :: lstate
-       ! type(c_ptr), value :: mode
-       character(kind=c_char) :: filename(*), mode(*)
-     end function c_luaL_loadfilex
-
+     ! lua 5.2 only
      function c_luaL_loadfilex_ptr(lstate, filename, mode) bind(C,name="luaL_loadfilex")
        use iso_c_binding, only: c_ptr, c_char, c_int
        integer(c_int) :: c_luaL_loadfilex_ptr
@@ -116,6 +125,14 @@ module c_lua_module
        type(c_ptr), value :: mode
        character(kind=c_char) :: filename(*)
      end function c_luaL_loadfilex_ptr
+
+     ! lua 5.1 only
+     function c_luaL_loadfile_ptr(lstate, filename) bind(C,name="luaL_loadfile")
+       use iso_c_binding, only: c_ptr, c_char, c_int
+       integer(c_int) :: c_luaL_loadfile_ptr
+       type(c_ptr), value :: lstate
+       character(kind=c_char) :: filename(*)
+     end function c_luaL_loadfile_ptr
 
      subroutine c_lua_gettable(lstate, index) bind(C,name="lua_gettable")
        use iso_c_binding, only: c_ptr, c_int
@@ -149,12 +166,21 @@ module c_lua_module
        integer(c_int), value :: index
      end subroutine c_lua_rawget
 
+     ! lua 5.2 lua_objlen was renamed to lua_rawlen
      function c_lua_rawlen(lstate, index) bind(C,name="lua_rawlen")
        use iso_c_binding, only: c_ptr, c_int, c_size_t
        type(c_ptr), value :: lstate
        integer(c_int), value :: index
        integer(c_size_t) :: c_lua_rawlen
      end function c_lua_rawlen
+
+     ! lua 5.1
+     function c_lua_objlen(lstate, index) bind(C,name="lua_objlen")
+       use iso_c_binding, only: c_ptr, c_int, c_size_t
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_size_t) :: c_lua_objlen
+     end function c_lua_objlen
 
      subroutine c_lua_pushinteger(lstate, int) bind(C,name="lua_pushinteger")
        use iso_c_binding, only: c_ptr, c_int
@@ -186,6 +212,12 @@ module c_lua_module
        integer(c_int) :: c_lua_tointegerx
      end function c_lua_tointegerx
 
+     function c_lua_tointeger(lstate, idx) bind(C,name="lua_tointeger")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: idx
+       integer(c_int) :: c_lua_tointeger
+     end function c_lua_tointeger
 
      function c_lua_toboolean(lstate, idx) bind(C,name="lua_toboolean")
        use iso_c_binding, only: c_ptr, c_int
@@ -203,6 +235,16 @@ module c_lua_module
        integer(c_int), value :: idx
        real(c_double) :: c_lua_tonumberx
      end function c_lua_tonumberx
+
+     !> @todo use two variants, one for quad precision and one for
+     !! double precision.
+     ! lua5.1 only:
+     function c_lua_tonumber(lstate, idx) bind(C,name="lua_tonumber")
+       use iso_c_binding, only: c_ptr, c_int, c_double
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: idx
+       real(c_double) :: c_lua_tonumber
+     end function c_lua_tonumber
 
      subroutine c_lua_pushstring(lstate, s) bind(C,name="lua_pushstring")
        use iso_c_binding, only: c_ptr, c_char
