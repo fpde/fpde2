@@ -1,3 +1,0 @@
- Damped harmonic oscillator
- y0 stays intact:  T
- dydt is correct:  T

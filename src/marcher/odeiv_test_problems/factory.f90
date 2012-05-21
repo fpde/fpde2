@@ -7,12 +7,15 @@
 !!
 !! Avaiable types of ODEIV:
 !! - AREN:
+!! - HARM:
+!! - VDPOL:
 !!
 module class_odeiv_factory
 
    use class_odeiv_generic
    use class_odeiv_aren
    use class_odeiv_harm
+   use class_odeiv_van_der_Pol
 
 contains
 
@@ -27,6 +30,9 @@ contains
 
       case ( "HARM" )
          allocate( odeiv_harm :: c )
+
+      case ( "VDPOL" )
+         allocate( odeiv_vdp :: c )
 
       case default
          nullify( c )

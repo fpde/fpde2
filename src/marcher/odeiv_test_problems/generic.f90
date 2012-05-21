@@ -23,15 +23,15 @@ module class_odeiv_generic
       !> Description of a ODEIV problem
       character(len=FPDE_MSG_LEN) :: description = ""
       !> Initial data at time t(0)
-      real, pointer, contiguous :: y0(:) => null()
+      real, pointer, contiguous :: y0(:)
       !> Analytic or high precision solution at time t(1)
-      real, pointer, contiguous :: y1(:) => null()
+      real, pointer, contiguous :: y1(:)
       !> Integration time interval
       real :: t(0:1)=[0.0,0.0]
       !> Time step size
       real :: h = 0.0
       !> Flag to indicate if ODEIV problem has an analycial solution
-      logical :: analytical_solution = .false.
+      logical :: analytic_solution = .false.
 
    contains
 
@@ -46,43 +46,43 @@ module class_odeiv_generic
 
 contains
 
-   subroutine init( odeiv )
-      class(odeiv_generic) :: odeiv
+   subroutine init(this)
+      class(odeiv_generic) :: this
    end subroutine init
 
-   subroutine info( odeiv )
-      class(odeiv_generic) :: odeiv
+   subroutine info(this)
+      class(odeiv_generic) :: this
       integer :: j
 
-      print *, 'ODE initial value problem: ', trim(odeiv % name)
-      print *, 'description:               ', trim(odeiv % description)
-      print *, 'dim:                       ', odeiv % sys % dim
+      print *, 'ODE initial value problem: ', trim(this % name)
+      print *, 'description:               ', trim(this % description)
+      print *, 'dim:                       ', this % sys % dim
       print *, 'integration inverval'
-      print *, '[t(0),t(1)] =              ', odeiv % t
-      print *, 'integration step size      ', odeiv % h
+      print *, '[t(0),t(1)] =              ', this % t
+      print *, 'integration step size      ', this % h
       print *, 'initial data: y0 =         '
-      do j=1,odeiv%sys%dim
-         print *, odeiv % y0(j)
+      do j=1,this%sys%dim
+         print *, this % y0(j)
       end do
       print *, 'final data: y1 =           '
-      do j=1,odeiv%sys%dim
-         print *, odeiv % y1(j)
+      do j=1,this%sys%dim
+         print *, this % y1(j)
       end do
-      print *, 'has analytical solution:   ', odeiv % analytical_solution
+      print *, 'has analytical solution:   ', this % analytic_solution
 
    end subroutine info
 
-   subroutine free( odeiv )
-      class(odeiv_generic) :: odeiv
+   subroutine free(this)
+      class(odeiv_generic) :: this
 
-      if ( associated( odeiv % y0 ) ) then
-         deallocate( odeiv % y0 )
-         odeiv % y0 => null()
+      if ( associated( this % y0 ) ) then
+         deallocate( this % y0 )
+         this % y0 => null()
       end if
 
-      if ( associated( odeiv % y1 ) ) then
-         deallocate( odeiv % y1 )
-         odeiv % y1 => null()
+      if ( associated( this % y1 ) ) then
+         deallocate( this % y1 )
+         this % y1 => null()
       end if
 
    end subroutine free

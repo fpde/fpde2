@@ -37,6 +37,8 @@ message(STATUS "Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "Archiver: ${CMAKE_AR}")
 message(STATUS "Linker: ${CMAKE_LINKER}")
 SET (CMAKE_Fortran_CREATE_STATIC_LIBRARY "<CMAKE_AR> cru <LINK_FLAGS> <TARGET> <OBJECTS>")
+set(MKLROOT "$ENV{MKLROOT}")
+message(STATUS "MKL root directory: ${MKLROOT}")
 # message(STATUS "${CMAKE_Fortran_CREATE_STATIC_LIBRARY}")
 # variables used in out of source build
 set( LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib )
@@ -60,12 +62,12 @@ set(Fortran77_PFLAGS "-fp-model strict -double-size 128 -integer-size 64")
 set(Fortran90_FLAGS "-fPIC -stand f08 -u -warn all -warn nounused -check all -check nopointers -cpp" )
 set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
 set(Fortran90_OFLAGS "-O3")
-set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 64")
+set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 32 -I${MKLROOT}/include/intel64/lp64  -I${MKLROOT}/include")
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 # set external libraries required by this project
 find_package(Lua52 REQUIRED)
-set(external_libs ${LUA_LIBRARY})
+set(external_libs ${LUA_LIBRARY} -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm)
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)

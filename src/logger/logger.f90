@@ -86,7 +86,7 @@ contains
 
       call get_timestamp(timestamp)
 
-      write(text,'("[",i3,"] ",A15,"[",A1,"] ",A)')&
+      write(text,'("[",i6,"] ",A15,"[",A1,"] ",A)')&
            logger%msg_id,&
            n%name,&
            lvl_text,&

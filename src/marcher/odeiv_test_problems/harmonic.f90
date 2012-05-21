@@ -15,36 +15,34 @@ module class_odeiv_harm
 
    type, public, extends(odeiv_generic) :: odeiv_harm
    contains
-
       procedure :: init
-
    end type odeiv_harm
 
 contains
 
-   subroutine init( odeiv )
-      class(odeiv_harm) :: odeiv
+   subroutine init(this)
+      class(odeiv_harm) :: this
       ! local variables
       integer, parameter :: n = 2 !< dimension of the problem
 
       ! ODEIV problem name
-      odeiv % name = 'HARM'
+      this % name = 'HARM'
       ! description
-      odeiv % description = 'Harmonic oscillator'
+      this % description = 'Harmonic oscillator'
 
       ! initial values
-      allocate ( odeiv % y0(n) )
-      allocate ( odeiv % y1(n) )
+      allocate ( this % y0(n) )
+      allocate ( this % y1(n) )
 
-      odeiv % y0(1) = 0.0
-      odeiv % y0(2) = 1.0
+      this % y0(1) = 0.0
+      this % y0(2) = 1.0
 
-      odeiv % h = 1.0e-1
+      this % h = 1.0e-1
 
-      odeiv % t = [0.0, 20.0]
+      this % t = [0.0, 20.0]
 
       ! ODE system initialization
-      call odeiv % sys % init( fun = harm_rhs, dim = n )
+      call this%sys%init(fun = harm_rhs, dim = n)
 
    end subroutine init
 

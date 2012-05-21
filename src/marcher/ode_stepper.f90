@@ -5,23 +5,24 @@
 !!
 !! @brief  ODE stepper class.
 !!
-!! Generic stepper class.
-!!
 !! @todo
 !! - [ ] write doc for module methods
 !! - [ ] check which steppers can benefit y' at input and which at output
 !!
 module class_ode_stepper
 
-   use logger_module
+   use class_platonic
    use class_ode_system
 
    private
 
-   type, public, extends(named) :: ode_stepper
-
-      !> Dimension of ODE system to solve (workspace size)
+   !> Generic stepper object
+   !!
+   type, public, abstract, extends(platonic) :: ode_stepper
+      !> Dimension of ODE system to solve (implies the amount of workspace)
       integer :: dim = 0
+
+      !??
       !> @todo check when the method can get benefit of y' at input
       logical :: can_use_dydt_in = .false.
       !> @todo check when the method gives the exact y' at output
@@ -33,45 +34,38 @@ module class_ode_stepper
 
    contains
 
-      !> Allocates workspace memory for instance of class. Assigns stepper
-      !! name, method order and stepper specific flags.
-      procedure :: init
       !> Applies the stepping function to the system of equations, defined
       !! by sys, using the step-size h and advances the system from time t
       !! and state y(t) to time t+h and state y(t+h).
-      procedure :: apply
+      procedure(apply), deferred :: apply
       !> Resets the stepper object (cleans workspace but not frees).
       !! It should be used whenever the next stepper use will not be
       !! a continuation of a previous step.
-      procedure :: reset
-      !> Frees all the memory associated with the steper instance.
-      procedure :: free
+      procedure(reset), deferred :: reset
 
    end type ode_stepper
 
-contains
 
-   subroutine init( s )
-      class(ode_stepper), intent(inout) :: s
-   end subroutine init
+   interface
 
-   subroutine apply( s, dim, t, h, y, yerr, dydt_in, dydt_out, sys, status )
-      class(ode_stepper), intent(inout) :: s
-      integer, intent(in) :: dim
-      real, intent(in) :: t, h
-      real, pointer, contiguous, intent(inout) :: y(:), yerr(:)
-      real, pointer, contiguous, intent(in)  :: dydt_in(:)
-      real, pointer, contiguous, intent(inout) :: dydt_out(:)
-      class(ode_system) :: sys
-      integer, optional :: status
-   end subroutine apply
+      subroutine apply( this, sys, y, t, h, yerr, dydt_in, dydt_out, error )
+         import :: ode_stepper, ode_system
+         class(ode_stepper), intent(inout) :: this
+         class(ode_system), intent(inout) :: sys
+         real, intent(in) :: t, h
+         real, pointer, contiguous, intent(inout) :: y(:)
+         real, optional, pointer, contiguous, intent(inout) :: yerr(:)
+         real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
+         real, optional, pointer, contiguous, intent(inout) :: dydt_out(:)
+         integer, optional, intent(out) :: error
+      end subroutine apply
 
-   subroutine reset( s )
-      class(ode_stepper), intent(inout) :: s
-   end subroutine reset
+      subroutine reset( this, error )
+         import :: ode_stepper
+         class(ode_stepper), intent(inout) :: this
+         integer, optional, intent(out) :: error
+      end subroutine reset
 
-   subroutine free( s )
-      class(ode_stepper), intent(inout) :: s
-   end subroutine free
+   end interface
 
 end module class_ode_stepper

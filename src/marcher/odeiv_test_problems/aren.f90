@@ -15,38 +15,31 @@ module class_odeiv_aren
 
    type, public, extends(odeiv_generic) :: odeiv_aren
    contains
-
       procedure :: init
-
    end type odeiv_aren
 
 contains
 
-   subroutine init( odeiv )
-      class(odeiv_aren) :: odeiv
+   subroutine init(this)
+      class(odeiv_aren) :: this
       ! local variables
       integer, parameter :: n = 4 !< dimension of the problem
 
       ! ODEIV problem name
-      odeiv % name = 'AREN'
+      this % name = 'AREN'
       ! description
-      odeiv % description = 'Arenstorf orbits - the rescticted three body problem'
+      this % description = 'Arenstorf orbits - the rescticted three body problem'
 
       ! initial values
-      allocate ( odeiv % y0(n) )
-      allocate ( odeiv % y1(n) )
+      allocate ( this % y0(n) )
+      allocate ( this % y1(n) )
 
-      odeiv % y0(1) = 0.994
-      odeiv % y0(2) = 0.0
-      odeiv % y0(3) = 0.0
-      odeiv % y0(4) = -2.00158510637908252240537862224
-
-      odeiv % h = 1.0e-4
-
-      odeiv % t = [0.0, 17.0652165601579625588917206249]
+      this % y0 = [ 0.994, 0.0, 0.0, -2.00158510637908252240537862224 ]
+      this % h = 1.0e-4
+      this % t = [ 0.0, 17.0652165601579625588917206249 ]
 
       ! ODE system initialization
-      call odeiv % sys % init( fun = aren_rhs, dim = n )
+      call this%sys%init(fun = aren_rhs, dim = n)
 
    end subroutine init
 
