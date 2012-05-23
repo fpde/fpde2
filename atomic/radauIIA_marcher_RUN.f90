@@ -2,12 +2,20 @@ program radauIIA_marcher_RUN
 
    use logger_module
    use constants_module
+   use class_odeiv_harm
    use class_odeiv_van_der_Pol
+
+   use class_ode_stepper_rkv65
    use class_ode_stepper_radauIIA
+
    use class_ode_marcher_simple
 
-   type(odeiv_vdp) :: vdp
-   type(ode_stepper_radauIIA), target :: s
+   ! type(odeiv_vdp) :: odeiv
+   type(odeiv_harm) :: odeiv
+
+   ! type(ode_stepper_radauIIA), target :: s
+   type(ode_stepper_rkv65), target :: s
+
    type(ode_marcher_simple) :: m
    integer :: err, i
    real :: time, tstep
@@ -16,14 +24,14 @@ program radauIIA_marcher_RUN
    call set_log_level(FPDE_LOG_ERROR)
 
    !> Initialize ode sys to get it's dimension
-   call vdp%init()
+   call odeiv%init()
 
-   s % dim = vdp % sys % dim
+   s % dim = odeiv % sys % dim
 
    allocate(ysol(s%dim))
 
    !> Copy initial values from ode sys
-   ysol = vdp % y0
+   ysol = odeiv % y0
 
    call s%log(FPDE_LOG_INFO, "call s%init")
    call s%init(err)
@@ -50,12 +58,20 @@ program radauIIA_marcher_RUN
 
    !> use the apply method
    call m%log(FPDE_LOG_INFO, "call m%apply")
-   time = vdp%t(0)
-   tstep = 1.0e-4
+   time = odeiv%t(0)
+   tstep = 1.0e-1
 
    do i=1,3000
-      call m%apply(sys=vdp%sys, y=ysol, t=time, t1=time+2*tstep, h=tstep, error=err)
+      call s%apply(sys=odeiv%sys, y=ysol, t=time, h=tstep, error=err)
+      time = time + tstep
+      ! call m%apply(sys=odeiv%sys, y=ysol, t=time, t1=time+2*tstep, h=tstep, error=err)
+      ! print '(200(es22.14))', i*1., time, ysol(1:2), tstep, 1.0*s%k_last
       print '(200(es22.14))', i*1., time, ysol(1:2), tstep
+
+      if ( err /= FPDE_STATUS_OK ) then
+         print *, "ERROR: ", err
+         stop
+      end if
    end do
 
    if ( err .ne. FPDE_STATUS_OK ) then
@@ -71,21 +87,21 @@ program radauIIA_marcher_RUN
 
    call s%log(FPDE_LOG_INFO, "call s%apply")
 
-   time = vdp%t(0)
+   time = odeiv%t(0)
    tstep = 0.1e-6
 
-   ! call s%apply(sys = vdp%sys, y = ysol, t = time, h = tstep, error=err)
+   ! call s%apply(sys = odeiv%sys, y = ysol, t = time, h = tstep, error=err)
 
    ! i=0
    ! do while (i<10)
-   !    call s%apply(sys = vdp%sys, y = ysol, t = time, h = tstep, error=err)
+   !    call s%apply(sys = odeiv%sys, y = ysol, t = time, h = tstep, error=err)
    !    time = time + tstep
    !    i = i + 1
    !    print '(3(es))', time, ysol(1:2)
    ! end do
 
-   do while (time < vdp%t(1))
-      call s%apply(sys = vdp%sys, y = ysol, t = time, h = tstep, error=err)
+   do while (time < odeiv%t(1))
+      call s%apply(sys = odeiv%sys, y = ysol, t = time, h = tstep, error=err)
       time = time + tstep
       print 11, time, ysol(1:2)
    end do
@@ -109,7 +125,7 @@ program radauIIA_marcher_RUN
       call s%log(FPDE_LOG_INFO, "free test passed")
    end if
 
-   call vdp%free()
+   call odeiv%free()
 
    deallocate(ysol)
 

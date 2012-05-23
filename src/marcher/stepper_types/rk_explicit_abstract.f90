@@ -121,7 +121,7 @@ contains
 
       !> Performing k1 step. Use derivatives at input, if passed
       !! and if the method can benefit from them.
-      if ( this % can_use_dydt_in .and. associated(dydt_in) ) then
+      if ( this % can_use_dydt_in .and. present(dydt_in) .and. associated(dydt_in) ) then
          !> save derivatives
          this % k(1,:) = dydt_in
       else
@@ -168,7 +168,7 @@ contains
 
       !> Calculate defivatives at output if a stroage vector is passed
       !! and the method can benefit from them.
-      if ( this % gives_exact_dydt_out .and. associated(dydt_out) ) then
+      if ( this % gives_exact_dydt_out .and. present(dydt_out) .and. associated(dydt_out) ) then
          !> compute derivatives
          call sys%fun(t + h, y, dydt_out, sys % params, sys % status )
          if ( sys % status /= FPDE_STATUS_OK ) then
@@ -185,10 +185,12 @@ contains
       end if
 
       !> compute the estimated error
-      yerr = 0.0
-      do i=1, this % stages
-         yerr = yerr + h * this % bt % ec(i) * this % k(i,:)
-      end do
+      if ( present(yerr) .and. associated(yerr) ) then
+         yerr = 0.0
+         do i=1, this % stages
+            yerr = yerr + h * this % bt % ec(i) * this % k(i,:)
+         end do
+      end if
 
       !> nullify the auxiliary pointer
       k_ptr => null()

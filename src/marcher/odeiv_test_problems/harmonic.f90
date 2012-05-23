@@ -9,6 +9,7 @@
 !!
 module class_odeiv_harm
 
+   use constants_module
    use class_odeiv_generic
 
    private
@@ -42,7 +43,7 @@ contains
       this % t = [0.0, 20.0]
 
       ! ODE system initialization
-      call this%sys%init(fun = harm_rhs, dim = n)
+      call this%sys%init(fun = harm_rhs, jac = harm_jac, dim = n)
 
    end subroutine init
 
@@ -56,6 +57,28 @@ contains
       dydt(1)  = y(2)
       dydt(2)  = -y(1)
 
+      if( present(status) ) then
+         status = FPDE_STATUS_OK
+      end if
    end subroutine harm_rhs
+
+   subroutine harm_jac(t, y, dfdy, dfdt, params, status)
+      real, intent(in) :: t
+      real, pointer, contiguous, intent(in) :: y(:)
+      real, pointer, contiguous, intent(out) :: dfdy(:,:)
+      real, pointer, contiguous, intent(out) :: dfdt(:)
+      class(*) :: params
+      integer, optional :: status
+
+      dfdt = 0.0
+
+      dfdy(1,:) = [ 0.0, 1.0 ]
+      dfdy(2,:) = [ -1.0, 0.0 ]
+
+      if( present(status) ) then
+         status = FPDE_STATUS_OK
+      end if
+   end subroutine harm_jac
+
 
 end module class_odeiv_harm
