@@ -1,15 +1,15 @@
-# CMake config file for all sources in ${PROJECT_SOURCE_DIR}/example/ subdir
-add_custom_target(build_examples)
+# CMake config file for all sources in ${PROJECT_SOURCE_DIR}/atomic/ subdir
+add_custom_target(build_atomics)
 
 include_directories(.)
 
-# Search for the source files recursively and add them to examples_list
-file(GLOB_RECURSE examples_list RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "[^.]*.f90")
+# Search for the source files recursively and add them to atomics_list
+file(GLOB_RECURSE atomics_list RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "[^.]*.f90")
 
 # Build configuration
 
-# Create targets for each file file in the examples_list
-foreach(bin ${examples_list})
+# Create targets for each file file in the atomics_list
+foreach(bin ${atomics_list})
   # cut the extension from the filename
   string(REPLACE ".f90" "" bin ${bin})
   add_executable(${bin} ${bin}.f90)
@@ -33,6 +33,11 @@ foreach(bin ${examples_list})
   # link to the helper libraries
   target_link_libraries(${bin} project_lib_shared ${external_libs})
 
-  add_dependencies(build_examples ${bin})
+  add_dependencies(build_atomics ${bin})
 
 endforeach(bin)
+
+# set_target_properties(build_atomics
+#   PROPERTIES
+#   EXCLUDE_FROM_ALL "TRUE"
+#   )

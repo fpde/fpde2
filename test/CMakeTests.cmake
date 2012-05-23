@@ -44,7 +44,7 @@ foreach(bin ${tests_list})
 
   set_target_properties(${bin}
     PROPERTIES
-    EXCLUDE_FROM_ALL true)
+    EXCLUDE_FROM_ALL "TRUE")
 
   # set_tests_properties(${bin}
   #   PROPERTIES

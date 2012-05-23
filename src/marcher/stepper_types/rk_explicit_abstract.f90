@@ -21,12 +21,35 @@ module class_ode_stepper_rk_explicit_abstract
 
       procedure :: init
       procedure :: apply
+      procedure :: refine_step
       procedure :: reset
       procedure :: free
 
    end type ode_stepper_rk_explicit_abstract
 
 contains
+
+   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
+      class(ode_stepper_rk_explicit_abstract), intent(inout) :: this
+      class(ode_system), intent(inout) :: sys
+      real, intent(in) :: t
+      real, pointer, contiguous, intent(in) :: y0(:), y1(:)
+      real, pointer, contiguous, intent(inout) :: yerr(:)
+      real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
+      real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+      real, intent(in) :: hold
+      real, intent(out) :: hnew
+      logical, intent(out) :: accept
+      integer, optional, intent(out) :: error
+
+      hnew = hold
+      accept = .true.
+
+      if ( present( error ) ) then
+         error = FPDE_STATUS_OK
+      end if
+
+   end subroutine refine_step
 
    subroutine init(p,error)
       class(ode_stepper_rk_explicit_abstract) :: p

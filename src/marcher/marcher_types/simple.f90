@@ -69,23 +69,43 @@ contains
    subroutine init( p, error )
       class(ode_marcher_simple), intent(inout) :: p
       integer, optional, intent(out) :: error
+      !> local variables
+      integer :: n, err
+
+      err = FPDE_STATUS_OK
+
+      p % name = "marcher_simple"
+      n = p % dim
 
       ! ! m % count = 0
       ! ! m % failed_steps = 0
       ! ! m % last_step = 0.0
 
-      if ( p % dim .le. 0 ) then
+      if ( n .le. 0 ) then
          call p%log(FPDE_LOG_ERROR, "Dimension passed in init cannot be <= 0")
-         if (present(error)) error = FPDE_STATUS_ERROR
+         err = FPDE_STATUS_ERROR
       end if
 
-      ! !! allocate marcher workspace vectors
-      ! allocate( m%y0( m%dim ) )
-      ! allocate( m%yerr( m%dim ) )
-      ! allocate( m%dydt_in( m%dim ) )
-      ! allocate( m%dydt_out( m%dim ) )
+      if ( .not. associated(p % s) ) then
+         !> @todo initialize some default stepper
+         call p%log(FPDE_LOG_ERROR, "stepper not set")
+         err = FPDE_STATUS_ERROR
+      else
+         !@todo check if stepper is initialized, how to do this?
+         call p%log(FPDE_LOG_DEBUG, "stepper '"//trim(p%s%name)//"' is set")
+      end if
 
-      if (present(error)) error = FPDE_STATUS_OK
+      if ( err == FPDE_STATUS_OK ) then
+         !> allocate marcher workspace vectors
+         allocate( p%y0(n) )
+         allocate( p%yerr(n) )
+         allocate( p%dydt_in(n) )
+         allocate( p%dydt_out(n) )
+         !> @todo check memory allocation status, if memory cannot be
+         !! allocated call p%free() and return error
+      end if
+
+      if (present(error)) error = err
 
    end subroutine init
 
@@ -125,16 +145,184 @@ contains
    end subroutine from_lua
 
 
-   subroutine apply( m, sys, y, t, t1, h, error )
-      class(ode_marcher_simple), intent(inout) :: m
+   subroutine apply( this, sys, y, t, t1, h, error )
+      class(ode_marcher_simple), intent(inout) :: this
       class(ode_system) :: sys
       real, intent(inout) :: t
       real, intent(in) :: t1
       real, optional, intent(inout) :: h
       real, pointer, intent(inout) :: y(:)
       integer, optional, intent(out) :: error
+      !> local variables
+      logical :: final_step, step_stat
+      integer :: err, step_status
+      real :: h0, t0, dt, h_old, t_curr, t_next
 
-      if(present(error)) error = FPDE_STATUS_OK
+      err = FPDE_STATUS_OK
+
+      ! h0 zmienna na ktorej operujemy, ewentualna zmiane kroku
+      ! czyli zmiennej h dokonujemy na koncu subrutyny
+      h0=h
+      t0=t
+      dt=t1-t0
+
+      ! Sprawdzanie poprawnosci wymiarow, kierunek calkowania,
+      ! calkowania ze zmiennym krokiem ... @todo
+
+      ! Sprawdzamy zgodnosc wymiarow marchera oraz steppera
+      if ( this % dim /= this % s % dim ) then
+         this % status = FPDE_STATUS_ERROR
+         call this%log(FPDE_LOG_ERROR, "Dimensions of stepper and marcher differ")
+         err = FPDE_STATUS_ERROR
+         return
+      end if
+
+      ! Sprawdzamy zgodnosc kierunku calkowania
+      if ( (dt<0.0 .and. h0>0.0) .or. (dt>0.0 .and. h0<0.0) ) then
+         this % status = FPDE_STATUS_ERROR
+         call this%log(FPDE_LOG_ERROR, "Marching direction must match time interval direction")
+         err = FPDE_STATUS_ERROR
+         return
+      end if
+
+      ! Jezeli calkujemy ze zmiennym krokiem czyli stepper
+      ! wylicza blad kroku oraz zostala podana metoda kontrolujaca
+      ! krok to wykonujemy kopie wejsciowego wektora y do struktury
+      ! matchera m % y0 ! ! .and. present( c ) ! @todo
+      if ( this % s % gives_estimated_yerr  ) then
+         this % y0 = y
+      end if
+
+      ! Wyliczamy pochodne jezeli metoda moze z nich skorzystac
+      if ( this % s % can_use_dydt_in ) then
+         call sys%fun( t, y, this % dydt_in, sys % params, sys % status )
+         if ( sys % status /= FPDE_STATUS_OK ) then
+            this % status = sys % status
+            return
+         end if
+      end if
+
+      ! Wykonujemy probny krok
+
+      ! Sprawdzenie czy krok jest ostatnim krokiem
+      ! (w przypadku calkowania do przodu i do tylu)
+100   if ( ( dt>=0.0 .and. h0>dt ).or.( dt<0.0 .and. h0<dt ) ) then
+         h0=dt
+         final_step=.true.
+      else
+         final_step=.false.
+      end if
+
+      ! Uruchamiamy stepper z uzyciem dydt_in
+      if ( this % s % can_use_dydt_in ) then
+         ! Kopiujemy wektor y na wypadek wystapienia bledu
+         this % y0 = y
+         call this%s%apply( sys=sys, y=y, t=t0, h=h0, yerr=this%yerr, &
+              &             dydt_in=this%dydt_in, dydt_out=this%dydt_out, error=err )
+      else
+         ! lub bez uzycia dydt_in !@todo if method cannot benefit dydt_in can it give dydt_out?
+         call this%s%apply( sys=sys, y=y, t=t0, h=h0, yerr=this%yerr, &
+              &             dydt_out=this%dydt_out, error=err )
+      end if
+
+      ! Sprawdzamy czy stepper wykonal sie poprawnie
+      if ( err /= FPDE_STATUS_OK ) then
+         ! jezeli wystapil blad przekazujemy taki sam
+         ! status bledu do statusu marchera aby mozna go
+         ! bylo z zewnatrz odczytac
+         this % status = this % s % status
+         h = h0 ! zwracamy krok przy jakim pojawil sie blad
+         t = t0 ! przywracamy wartosc t podana na wejsciu
+         return
+      end if
+
+      ! Jezeli stepper nie spowodowal zadnych bledow zwiekszamy
+      ! licznik m % count i zapisujemy krok w m % last_step
+      this % count = this % count + 1
+      this % last_step = h0
+
+      ! Zapisujemy aktualny czas
+      if ( final_step ) then
+         t = t1
+      else
+         t = t0 + h0
+      end if
+
+      ! Ponizej kod odpowiadajacy za calkowanie ze zmiennym krokiem
+
+      ! Jezeli metoda na to pozwala oraz zostal podany step control
+      ! uzywamy metody z adaptywnym krokiem
+      if ( this % s % gives_estimated_yerr ) then
+         h_old = h0 ! zapamietujemy wielkosc kroku
+
+         !> this is totally new part
+         call this%s%refine_step(sys=sys, t=t0, y0=this % y0, y1=y, yerr=this%yerr, &
+              &                  hold=h_old, hnew=h0, accept=step_stat, error=err )
+
+         if ( err /= FPDE_STATUS_OK ) then
+            h = h0 ! zwracamy krok przy jakim pojawil sie blad
+            t = t0 ! przywracamy wartosc t podana na wejsciu
+            call this%log(FPDE_LOG_ERROR, "integration step refining failed")
+            return
+         end if
+
+         ! call c % apply ( s, y, m % yerr, m % dydt_out, h0 )
+         ! ! po wykonaniu apply step control ustawia swoj status
+         ! ! czyli zmienna c % status w zaleznosci czy krok ma
+         ! ! zostac zmieniony badz nie. Przyjeta konwencja:
+         ! ! c % status = 1   zostal zwiekszony ODE_STEP_INCREASED
+         ! ! c % status =-1   zostal zmniejszony ODE_STEP_DECREASED
+         ! ! c % status = 0   nie zostal zmieniony ODE_STEP_NOCHANGED
+
+         ! if ( c % status == ODE_STEP_DECREASED ) then
+
+         ! print *, "hold: ", h_old
+         ! print *, "hnew: ", h0
+         ! call sleep(2)
+
+         if ( step_stat ) then
+            !> accept step this step and try next with h0
+         else
+            !> step rejected
+            ! Krok zostal zmniejszony, anulujemy wykonany krok
+            ! i probujemy znow z nowym krokiem h0
+            y = this % y0
+            this % failed_steps = this % failed_steps + 1
+            go to 100
+         end if
+
+
+      !    if ( abs(h0) < abs(h_old) ) then
+
+      !       ! Sprawdzamy poprawnosc sugerowanego kroku:
+      !       ! czy h0 zostalo 'naprawde' zmniejszone
+      !       ! oraz czy sugerowane h0 zmieni czas t conajmniej
+      !       ! o jedna ULP
+
+      !       ! @todo double coerce?
+      !       t_curr = t
+      !       t_next = t+h0
+
+      !       if ( abs(h0) < abs(h_old) .and. t_next /= t_curr ) then
+      !          ! Krok zostal zmniejszony, anulujemy wykonany krok
+      !          ! i probujemy znow z nowym krokiem h0
+      !          y = this % y0
+      !          this % failed_steps = this % failed_steps + 1
+      !          !$omp barrier
+      !          go to 100
+      !       else
+      !          ! W przeciwnym wypadku trzymamy aktualny krok
+      !          h0 = h_old
+      !       end if
+      !    end if
+
+      end if
+
+      ! Zapisujemy sugerowana wielkosc dla nastepnego
+      ! kroku czasowego
+      h = h0
+
+      if(present(error)) error = err
    end subroutine apply
 
 
@@ -281,18 +469,18 @@ contains
 
 !    end subroutine apply
 
-   subroutine reset( m, error )
-      class(ode_marcher_simple), intent(inout) :: m
+   subroutine reset( this, error )
+      class(ode_marcher_simple), intent(inout) :: this
       integer, optional, intent(out) :: error
 
-      m % count = 0
-      m % failed_steps = 0
-      m % last_step = 0.0
+      ! m % count = 0
+      ! m % failed_steps = 0
+      ! m % last_step = 0.0
 
-      m % y0 = 0.0
-      m % yerr = 0.0
-      m % dydt_in = 0.0
-      m % dydt_out = 0.0
+      ! m % y0 = 0.0
+      ! m % yerr = 0.0
+      ! m % dydt_in = 0.0
+      ! m % dydt_out = 0.0
 
       if (present(error)) error = FPDE_STATUS_OK
 

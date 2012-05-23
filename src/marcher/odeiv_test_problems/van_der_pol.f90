@@ -23,7 +23,7 @@ contains
       allocate( this % y0(n) )
       allocate( this % y1(n) )
 
-      this % y0 = [ 2.0, 0.0 ]
+      this % y0 = [ 2.0, -0.6 ]
       this % h = 1.0e-4
       this % t = [ 0.0, 2.0 ]
 
@@ -38,7 +38,7 @@ contains
       class(*) :: params
       integer, optional :: status
       !> fixed equation parameters
-      real, parameter :: mu = 50.0
+      real, parameter :: mu = 500.0
 
       dydt = [ y(2) , mu**2*( (1.0-y(1)**2)*y(2) - y(1) ) ]
 
@@ -55,7 +55,7 @@ contains
       class(*) :: params
       integer, optional :: status
       !> fixed equation parameters
-      real, parameter :: mu = 50.0
+      real, parameter :: mu = 500.0
 
       dfdt = 0.0
 

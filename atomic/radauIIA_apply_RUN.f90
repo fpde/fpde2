@@ -7,11 +7,11 @@ program radauIIA_apply_RUN
 
    type(odeiv_vdp) :: vdp
    type(ode_stepper_radauIIA) :: s
-   integer :: err
+   integer :: err, i
    real :: time, tstep
    real, pointer :: ysol(:)
 
-   call set_log_level(FPDE_LOG_INFO)
+   call set_log_level(FPDE_LOG_ERROR)
 
    !> Initialize ode sys to get it's dimension
    call vdp%init()
@@ -35,12 +35,25 @@ program radauIIA_apply_RUN
    call s%log(FPDE_LOG_INFO, "call s%apply")
 
    time = vdp%t(0)
-   tstep = 0.000025
+   tstep = 0.1e-6
+
+   ! call s%apply(sys = vdp%sys, y = ysol, t = time, h = tstep, error=err)
+
+   ! i=0
+   ! do while (i<10)
+   !    call s%apply(sys = vdp%sys, y = ysol, t = time, h = tstep, error=err)
+   !    time = time + tstep
+   !    i = i + 1
+   !    print '(3(es))', time, ysol(1:2)
+   ! end do
+
    do while (time < vdp%t(1))
       call s%apply(sys = vdp%sys, y = ysol, t = time, h = tstep, error=err)
       time = time + tstep
-      print '(3(es))', time, ysol(1:2)
+      print 11, time, ysol(1:2)
    end do
+
+11 FORMAT (2000(es22.14))
 
    if ( err .ne. FPDE_STATUS_OK ) then
       call s%log(FPDE_LOG_ERROR, "free apply failed")

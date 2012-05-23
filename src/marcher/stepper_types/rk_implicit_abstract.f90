@@ -43,12 +43,35 @@ module class_ode_stepper_rk_implicit_abstract
       procedure :: init
       procedure :: apply
       procedure :: iterate_newton
+      procedure :: refine_step
       procedure :: reset
       procedure :: free
 
    end type ode_stepper_rk_implicit_abstract
 
 contains
+
+   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
+      class(ode_stepper_rk_implicit_abstract), intent(inout) :: this
+      class(ode_system), intent(inout) :: sys
+      real, intent(in) :: t
+      real, pointer, contiguous, intent(in) :: y0(:), y1(:)
+      real, pointer, contiguous, intent(inout) :: yerr(:)
+      real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
+      real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+      real, intent(in) :: hold
+      real, intent(out) :: hnew
+      logical, intent(out) :: accept
+      integer, optional, intent(out) :: error
+
+      hnew = hold
+      accept = .true.
+
+      if ( present( error ) ) then
+         error = FPDE_STATUS_OK
+      end if
+
+   end subroutine refine_step
 
    subroutine init(p,error)
       class(ode_stepper_rk_implicit_abstract) :: p
@@ -94,7 +117,8 @@ contains
          if ( .not. associated( p % FZ ) ) allocate( p % FZ(n*s) )
          if ( .not. associated( p % DZ ) ) allocate( p % DZ(n*s) )
          if ( .not. associated( p % pivot ) ) allocate( p % pivot(n*s) )
-         if ( .not. associated( p % ytmp ) ) allocate( p % ytmp(n*s) )
+         if ( .not. associated( p % ytmp ) ) allocate( p % ytmp(n) )
+         !> @bug what about the length of this vector should it be s*n or n ??
       else
          !> log the error
          call p%log(FPDE_LOG_ERROR, "initializing stepper: dim <= 0")
@@ -295,7 +319,7 @@ contains
 
          !> Check Jacobian recomputation condition
          if ( k == 0 .or. theta <= 1.0e-3 ) then !@todo make this constant a parameter of method
-            !> do not recompute Jacobian in the last step
+            !> do not recompute Jacobian in the next step
             this % jac_recompute = .false.
          else
             this % jac_recompute = .true.

@@ -73,7 +73,10 @@ set(external_libs ${LUA_LIBRARY} -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_sequ
 add_subdirectory(src)
 
 # subdirectory with examples
-add_subdirectory(example)
+add_subdirectory(example EXCLUDE_FROM_ALL)
+
+# subdirectory with atomic tests
+add_subdirectory(atomic EXCLUDE_FROM_ALL)
 
 # subdirectory with tests
 add_subdirectory(test)

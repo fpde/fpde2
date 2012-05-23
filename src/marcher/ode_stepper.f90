@@ -43,10 +43,27 @@ module class_ode_stepper
       !! a continuation of a previous step.
       procedure(reset), deferred :: reset
 
+      procedure(refine_step), deferred :: refine_step
+
    end type ode_stepper
 
 
    interface
+
+      subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
+         import :: ode_stepper, ode_system
+         class(ode_stepper), intent(inout) :: this
+         class(ode_system), intent(inout) :: sys
+         real, intent(in) :: t
+         real, pointer, contiguous, intent(in) :: y0(:), y1(:)
+         real, pointer, contiguous, intent(inout) :: yerr(:)
+         real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
+         real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+         real, intent(in) :: hold
+         real, intent(out) :: hnew
+         logical, intent(out) :: accept
+         integer, optional, intent(out) :: error
+      end subroutine refine_step
 
       subroutine apply( this, sys, y, t, h, yerr, dydt_in, dydt_out, error )
          import :: ode_stepper, ode_system

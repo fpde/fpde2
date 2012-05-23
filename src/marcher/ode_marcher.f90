@@ -37,9 +37,9 @@ module class_ode_marcher
 
    interface
 
-      subroutine apply( m, sys, y, t, t1, h, error )
+      subroutine apply( this, sys, y, t, t1, h, error )
          import :: ode_marcher, ode_system
-         class(ode_marcher), intent(inout) :: m
+         class(ode_marcher), intent(inout) :: this
          class(ode_system) :: sys
          real, intent(inout) :: t
          real, intent(in) :: t1
@@ -48,9 +48,9 @@ module class_ode_marcher
          integer, optional, intent(out) :: error
       end subroutine apply
 
-      subroutine reset( m, error )
+      subroutine reset( this, error )
          import :: ode_marcher
-         class(ode_marcher), intent(inout) :: m
+         class(ode_marcher), intent(inout) :: this
          integer, optional, intent(out) :: error
       end subroutine reset
 
