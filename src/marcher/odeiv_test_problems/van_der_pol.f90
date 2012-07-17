@@ -18,7 +18,7 @@ contains
       integer, parameter :: n=2
 
       this % name = 'VDPOL'
-      this % description = "van der Pol's equation with parameter mu=500"
+      this % description = "van der Pol's equation with parameter mu=1000"
 
       allocate( this % y0(n) )
       allocate( this % y1(n) )
@@ -38,7 +38,7 @@ contains
       class(*) :: params
       integer, optional :: status
       !> fixed equation parameters
-      real, parameter :: mu = 500.0
+      real, parameter :: mu = 1000.0
 
       dydt = [ y(2) , mu**2*( (1.0-y(1)**2)*y(2) - y(1) ) ]
 
@@ -55,12 +55,15 @@ contains
       class(*) :: params
       integer, optional :: status
       !> fixed equation parameters
-      real, parameter :: mu = 500.0
+      real, parameter :: mu = 1000.0
 
       dfdt = 0.0
 
-      dfdy(1,:) = [ 0.0, -mu**2*( 1.0 + 2.0*y(1)*y(2) ) ]
-      dfdy(2,:) = [ 1.0, mu**2*( 1.0 - y(1)**2 ) ]
+      dfdy(1,:) = [ 0.0, 1.0 ]
+      dfdy(2,:) = [ -mu**2*( 1.0 + 2.0*y(1)*y(2) ), mu**2*( 1.0 - y(1)**2 ) ]
+
+      !  dfdy(1,:) = [ 0.0, -mu**2*( 1.0 + 2.0*y(1)*y(2) ) ]
+      ! dfdy(2,:) = [ 1.0, mu**2*( 1.0 - y(1)**2 ) ]
 
       if( present(status) ) then
          status = FPDE_STATUS_OK

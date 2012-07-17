@@ -351,17 +351,45 @@ contains
       !> Construct Asmall and Alarge matrices
       call this%log(FPDE_LOG_DEBUG, "constructing Asmall matrix: start")
       this % Asmall = - this % J
+      ! this % Asmall = - transpose( this % J )
       do i=1,n
          this % Asmall(i,i) = this % Asmall(i,i) + gamma/h
       end do
+!       print *, ""
+!       print *, "J: "
+!       do i=1,n
+!          print 11, ( this % J(i,j), j=1,n )
+!       end do
+!       print *, ""
+!       print *, ""
+!       print *, "Asmall: "
+!       do i=1,n
+!          print 11, ( this % Asmall(i,j), j=1,n )
+!       end do
+!       print *, ""
+! 11    FORMAT (2000(f12.5))
+!      stop
       call this%log(FPDE_LOG_DEBUG, "constructing Asmall matrix: end")
 
 
       call this%log(FPDE_LOG_DEBUG, "constructing Alarge matrix: start")
       this % Alarge = 0.0
-      this % Alarge(1:n,1:n) = - this % J
-      this % Alarge(n+1:2*n,n+1:2*n) = - this % J
+
+      this % Alarge(1:n,1:n) = - ( this % J )
+      this % Alarge(n+1:2*n,n+1:2*n) = - ( this % J )
+
+      ! this % Alarge(1:n,1:n) = - transpose( this % J )
+      ! this % Alarge(n+1:2*n,n+1:2*n) = - transpose( this % J )
+
       this % Alarge = this % Alarge + this % mu/h
+
+      ! this % Alarge = transpose(this % Alarge)
+!       print *, "Alarge: "
+!       do i=1,n*2
+!          print 11, ( this % Alarge(i,j), j=1,n*2 )
+!       end do
+!       print *, ""
+! stop
       call this%log(FPDE_LOG_DEBUG, "constructing Alarge matrix: end")
 
       !> Perform LU factorization of the Asmall matrix
@@ -400,7 +428,7 @@ contains
       call this%log(FPDE_LOG_DEBUG, "Newton solver: end")
 
       if ( err /= FPDE_STATUS_OK ) then
-         !> @todo
+         !> @todo detection of Newton convergence
          call this%log(FPDE_LOG_ERROR, "Newton solver failed")
       else
          !> Newton iteration converged, compute the final sum
@@ -424,14 +452,13 @@ contains
       real, intent(in) :: t, h
       real, pointer, contiguous, intent(in) :: y0(:)
       integer, optional, intent(out) :: error
+      !> local variables
       integer :: err, i, k, kmax, s, n
       real :: eta, theta, dz_norm_last, dz_norm, kappatol, divtest
       real, parameter :: min_real=epsilon(1.0)
-
       real, pointer :: Z(:), W(:), F(:)
       real, pointer :: F_ns(:,:), Z_ns(:,:), W_ns(:,:)
       real, pointer :: Z_n(:), F_n(:)
-      ! FZk(:), Zk(:), F(:), Z(:), F_ns(:,:), Z_ns(:,:), W(:), W_ns(:,:)
       character(len=3) :: ck
 
       err = FPDE_STATUS_OK
@@ -451,8 +478,7 @@ contains
 
       !> Starting values for the Newton iteration
       !! \f$ W^{k} = (T^{-1} \otimes I) Z^{k} \f$
-      ! W = matmul(this % TTI_cr_ID, Z)
-      W = 0.0
+      W = matmul(this % TTI_cr_ID, Z)
 
       this % newton_status = FPDE_STATUS_ERROR
 
@@ -469,7 +495,7 @@ contains
             ! Z_n => Z_ns(:,s)
             ! F_n(1:n) => F_ns(1:n,s) !@bug this doesnt work !
 
-            Z_n => W((i-1)*n+1:i*n)
+            Z_n => Z((i-1)*n+1:i*n)
             F_n => F((i-1)*n+1:i*n)
 
             this % ytmp = y0 + Z_n

@@ -10,11 +10,11 @@ program radauIIA_marcher_RUN
 
    use class_ode_marcher_simple
 
-   ! type(odeiv_vdp) :: odeiv
-   type(odeiv_harm) :: odeiv
+   type(odeiv_vdp) :: odeiv
+   ! type(odeiv_harm) :: odeiv
 
-   ! type(ode_stepper_radauIIA), target :: s
-   type(ode_stepper_rkv65), target :: s
+   type(ode_stepper_radauIIA), target :: s
+   ! type(ode_stepper_rkv65), target :: s
 
    type(ode_marcher_simple) :: m
    integer :: err, i
@@ -59,20 +59,31 @@ program radauIIA_marcher_RUN
    !> use the apply method
    call m%log(FPDE_LOG_INFO, "call m%apply")
    time = odeiv%t(0)
-   tstep = 1.0e-1
+   tstep = 1.0e-6
 
-   do i=1,3000
-      call s%apply(sys=odeiv%sys, y=ysol, t=time, h=tstep, error=err)
-      time = time + tstep
-      ! call m%apply(sys=odeiv%sys, y=ysol, t=time, t1=time+2*tstep, h=tstep, error=err)
-      ! print '(200(es22.14))', i*1., time, ysol(1:2), tstep, 1.0*s%k_last
-      print '(200(es22.14))', i*1., time, ysol(1:2), tstep
+   ! do i=1,200
+   !    call s%apply(sys=odeiv%sys, y=ysol, t=time, h=tstep, error=err)
+   !    time = time + tstep
+   !    print '(200(es22.14))', i*1., time, ysol(1:2), tstep
+   !    if ( err /= FPDE_STATUS_OK ) then
+   !       print *, "ERROR: ", err
+   !       stop
+   !    end if
+   ! end do
 
+   i=1
+   odeiv%t(1) = 2.0
+   do while ( time < odeiv%t(1) )
+      call m%apply(sys=odeiv%sys, y=ysol, t=time, t1=odeiv%t(1), h=tstep, error=err)
+      print '(200(es22.14))', i*1., time, ysol(1:2), tstep, 1.0*s%k_last
+      i = i + 1
       if ( err /= FPDE_STATUS_OK ) then
          print *, "ERROR: ", err
          stop
       end if
    end do
+
+
 
    if ( err .ne. FPDE_STATUS_OK ) then
       call m%log(FPDE_LOG_ERROR, "m%apply test failed")
