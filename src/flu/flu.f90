@@ -23,25 +23,37 @@ module flu_module
   use logger_module
   use constants_module
 
+#define luajit
+! #define lua51
+  ! #define lua52
+
+#ifdef luajit
 #define lua51
-! #define lua52
+#endif
 
   !> lua constants, copied from lua.h
   integer(c_int), parameter :: &
        C_LUA_MULTRET = -1,&
        C_LUAI_MAXSTACK = 1000000,&
        C_LUAI_FIRSTPSEUDOINDEX = -C_LUAI_MAXSTACK - 1000,&
-       C_LUA_REGISTRYINDEX = C_LUAI_FIRSTPSEUDOINDEX,&
        C_LUA_GLOBALSINDEX = -10002
 
+#ifdef luajit
+  integer(c_int), parameter :: C_LUA_REGISTRYINDEX = -10000
+#else
+  integer(c_int), parameter :: C_LUA_REGISTRYINDEX = C_LUA_FIRSTPSEUDOINDEX
+#endif
+
+  !> fortran version of the above parameters
   integer, parameter :: &
-       LUA_MULTRET = -1,&
-       LUAI_MAXSTACK = 1000000,&
-       LUAI_FIRSTPSEUDOINDEX = -C_LUAI_MAXSTACK - 1000,&
-       LUA_REGISTRYINDEX = C_LUAI_FIRSTPSEUDOINDEX,&
-       LUA_GLOBALSINDEX = -10002
+       LUA_MULTRET           = int(C_LUA_MULTRET),           &
+       LUAI_MAXSTACK         = int(C_LUAI_MAXSTACK),         &
+       LUAI_FIRSTPSEUDOINDEX = int(C_LUAI_FIRSTPSEUDOINDEX), &
+       LUA_REGISTRYINDEX     = int(C_LUA_REGISTRYINDEX),     &
+       LUA_GLOBALSINDEX      = int(C_LUA_GLOBALSINDEX)
 
   !> lua types, copied from lua.h
+  !> @todo [0] change C_LUA_ prefix to LUA_
   integer, parameter ::&
        C_LUA_TNONE          =(-1),&
        C_LUA_TNIL           =0,&
@@ -211,6 +223,26 @@ contains
     call c_lua_setlocal(l%lstate, name//c_null_char)
   end subroutine lua_setlocal
 
+
+  function lua_setfenv(l,index)
+    type(flu) :: l
+    integer :: index, lua_setfenv
+    lua_setfenv = c_lua_setfenv(l%lstate, int(index,c_int))
+  end function lua_setfenv
+
+  subroutine lua_createtable(l,narr,nrec)
+    type(flu) :: l
+    integer :: narr, nrec
+    call c_lua_createtable(l%lstate,&
+         int(narr,c_int),int(nrec,c_int))
+  end subroutine lua_createtable
+
+  subroutine lua_newtable(l)
+    type(flu) :: l
+    call lua_createtable(l,0,0)
+  end subroutine lua_newtable
+
+
   ! lua_tolstring is missing, but it was used only in lua_tostring
   ! function, which is implemented below instead of lua_tolstring
 
@@ -312,6 +344,21 @@ contains
   end subroutine lua_rawget
 
 
+  subroutine lua_rawgeti(l,index,n)
+    type(flu) :: l
+    integer :: index, n
+    call c_lua_rawgeti(l%lstate, int(index,c_int), int(n,c_int))
+  end subroutine lua_rawgeti
+
+
+  function luaL_ref(l, index)
+    type(flu) :: l
+    integer :: index
+    integer :: luaL_ref
+    luaL_ref = c_luaL_ref(l%lstate, int(index,c_int))
+  end function luaL_ref
+
+
   function lua_rawlen(l,index)
     type(flu) :: l
     integer :: index
@@ -355,6 +402,14 @@ contains
     integer :: index
     lua_topointer = c_lua_topointer(l%lstate,int(index,c_int))
   end function lua_topointer
+
+
+  function lua_toprocpointer(l,index)
+    type(flu) :: l
+    type(c_funptr) :: lua_toprocpointer
+    integer :: index
+    lua_toprocpointer = c_lua_toprocpointer(l%lstate,int(index,c_int))
+  end function lua_toprocpointer
 
 
   subroutine lua_pushinteger(l,i)
@@ -458,6 +513,13 @@ contains
     integer :: lua_gettop
     lua_gettop = c_lua_gettop(l%lstate)
   end function lua_gettop
+
+
+  subroutine lua_replace(l,index)
+    type(flu) :: l
+    integer :: index
+    call c_lua_replace(l%lstate,int(index,c_int))
+  end subroutine lua_replace
 
 
   subroutine luaL_openlibs(l)

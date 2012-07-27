@@ -64,8 +64,8 @@ set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 64")
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 # set external libraries required by this project
-find_package(Lua52 REQUIRED)
-set(external_libs ${LUA_LIBRARY})
+# find_package(Lua52 REQUIRED)
+# set(external_libs ${LUA_LIBRARY})
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)

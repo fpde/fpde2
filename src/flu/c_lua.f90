@@ -75,6 +75,24 @@ module c_lua_module
        character(kind=c_char) :: name(*)
      end subroutine c_lua_setlocal
 
+     function c_lua_setfenv(lstate,index) bind(C,name="lua_setfenv")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_int) ::  c_lua_setfenv
+     end function c_lua_setfenv
+
+     subroutine c_lua_createtable(lstate, narr, nrec) bind(C,name="lua_createtable")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: narr, nrec
+     end subroutine c_lua_createtable
+
+     subroutine c_lua_newtable(lstate) bind(C,name="lua_newtable")
+       use iso_c_binding, only: c_ptr
+       type(c_ptr), value :: lstate
+     end subroutine c_lua_newtable
+
      function c_lua_tolstring(lstate, index, len) bind(C,name="lua_tolstring")
        use iso_c_binding, only: c_ptr, c_char, c_int, c_size_t
        type(c_ptr), value :: lstate
@@ -160,11 +178,31 @@ module c_lua_module
        integer(c_int), value :: index
      end function c_lua_topointer
 
+     function c_lua_toprocpointer(lstate, index) bind(C,name="lua_topointer")
+       use iso_c_binding, only: c_ptr, c_int, c_funptr
+       type(c_ptr), value :: lstate
+       type(c_funptr) :: c_lua_toprocpointer
+       integer(c_int), value :: index
+     end function c_lua_toprocpointer
+
      subroutine c_lua_rawget(lstate, index) bind(C,name="lua_rawget")
        use iso_c_binding, only: c_ptr, c_int
        type(c_ptr), value :: lstate
        integer(c_int), value :: index
      end subroutine c_lua_rawget
+
+     subroutine c_lua_rawgeti(lstate, index, n) bind(C,name="lua_rawgeti")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index, n
+     end subroutine c_lua_rawgeti
+
+     function c_luaL_ref(lstate, index) bind(C,name="luaL_ref")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+       integer(c_int) :: c_luaL_ref
+     end function c_luaL_ref
 
      ! lua 5.2 lua_objlen was renamed to lua_rawlen
      function c_lua_rawlen(lstate, index) bind(C,name="lua_rawlen")
@@ -257,6 +295,12 @@ module c_lua_module
        type(c_ptr), value :: lstate
        integer(c_int) :: c_lua_gettop
      end function c_lua_gettop
+
+     subroutine c_lua_replace(lstate, index) bind(C,name="lua_replace")
+       use iso_c_binding, only: c_ptr, c_int
+       type(c_ptr), value :: lstate
+       integer(c_int), value :: index
+     end subroutine c_lua_replace
 
      subroutine c_luaL_openlibs(lstate) bind(C,name="luaL_openlibs")
        use iso_c_binding, only: c_ptr
