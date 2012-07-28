@@ -19,10 +19,11 @@ module class_generic_function
   end type generic_function
 
   interface
-     subroutine call_interface(this, solver)
+     subroutine call_interface(this, solver, error)
        import generic_function
        class(generic_function) :: this
        class(*), pointer :: solver
+       integer, optional, intent(out) :: error
      end subroutine call_interface
   end interface
 

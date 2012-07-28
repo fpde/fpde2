@@ -27,6 +27,7 @@ module class_generic_function_from_object
   use flu_get_module
   use class_generic_function
   use iso_c_binding
+  use iso_c_utilities
   use class_generic_function_from_object_interfaces
 
   private
@@ -68,9 +69,9 @@ module class_generic_function_from_object
        type(c_funptr) :: dlsym
      end function dlsym
 
-     function dlerror() result(error) bind(c,name="dlerror")
+     function dlerror() bind(c,name="dlerror")
        use iso_c_binding
-       type(c_ptr) :: error
+       type(c_ptr) :: dlerror
      end function dlerror
 
      subroutine dlclose( handle ) bind(c, name="dlclose")
@@ -82,11 +83,20 @@ module class_generic_function_from_object
 
 contains
 
-  subroutine call(this, solver)
+  subroutine call(this, solver, error)
     class(generic_function_from_object) :: this
     class(*), pointer :: solver
+    integer, optional, intent(out) :: error
 
-    call this % fun(c_loc(solver))
+    if(present(error)) error = FPDE_STATUS_OK
+
+    if( associated(this%fun) ) then
+       call this % fun(c_loc(solver))
+    else
+       call this%log(FPDE_LOG_ERROR,&
+       "Call error: function pointer is null")
+       if(present(error)) error = FPDE_STATUS_ERROR
+    end if
 
   end subroutine call
 
@@ -97,19 +107,55 @@ contains
 
     character(len=NAME_LEN) :: libname, funcname
     type(c_funptr) :: cfun
+    integer :: err
+
+    call p%platonic%from_lua(l)
+    if( p%name == "" ) p%name = "generic_function"
+    p%type = "generic_function_from_object_file"
 
     call flu_get_atomic(l,&
-         char = libname,&
-         key  = TAG_LIBNAME)
+         char  = libname,&
+         key   = TAG_LIBNAME,&
+         error = err )
+
+    if( err /= FPDE_STATUS_OK ) then
+       call p%log(FPDE_LOG_ERROR,&
+       "Invalid or missing object file name")
+       return
+    end if
 
     call flu_get_atomic(l,&
          char = funcname,&
-         key  = TAG_FUNCNAME)
+         key  = TAG_FUNCNAME,&
+         error = err )
+
+    if( err /= FPDE_STATUS_OK ) then
+       call p%log(FPDE_LOG_ERROR,&
+       "Invalid or missing symbol name")
+       return
+    end if
 
     p%handle = dlopen(trim(libname)//c_null_char, RTLD_NOW)
-    if(.not. c_associated(p%handle)) print *, "error lib"
+
+    if(.not. c_associated(p%handle)) then
+       call p%log(FPDE_LOG_ERROR,&
+       "Couldn't open library ["//trim(libname)//"]")
+       call p%log(FPDE_LOG_ERROR,&
+       "dlerror: "//c_f_string(dlerror()))
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
     cfun = dlsym(p%handle, trim(funcname)//c_null_char)
-    if(.not. c_associated(cfun)) print *, "error func"
+    if(.not. c_associated(cfun)) then
+       call p%log(FPDE_LOG_ERROR,&
+       "Couldn't open function ["//trim(funcname)//"]")
+       call p%log(FPDE_LOG_ERROR,&
+       "dlerror: "//c_f_string(dlerror()))
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
     call c_f_procpointer(cfun, p % fun)
 
     if(present(error)) error = FPDE_STATUS_OK
@@ -120,7 +166,9 @@ contains
     class(generic_function_from_object) :: p
     integer, optional, intent(out) :: error
 
-    call dlclose(p%handle)
+    if(c_associated(p%handle)) then
+       call dlclose(p%handle)
+    end if
 
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine free
