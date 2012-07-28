@@ -70,16 +70,13 @@ contains
     character(len=100) :: name
     class(platonic), pointer :: ptr
 
-    ! get name
-    call flu_get_atomic( l,&
-         char = p%name,&
-         key = TAG_NAME,&
-         error = err2 )
-
-    if(err2 /= FPDE_STATUS_OK) then
-       err = err2
+    call p%platonic%from_lua(l)
+    if(p%name == "") then
+       p%name = "Unnamed function"
        call p%log( FPDE_LOG_ERROR,&
-            "Unnamed function")
+            "Name is required for this data type (add parameter name = ...)")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
     end if
 
     ! calculate the length of derivatives vector and allocate it
