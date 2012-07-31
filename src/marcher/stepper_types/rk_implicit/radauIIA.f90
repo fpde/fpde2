@@ -29,18 +29,21 @@ module class_ode_stepper_radauIIA
       logical :: last_step_rejected = .false.
       real :: atol = 1.0e-4, rtol = 1.0e-4
 
+      !> predictive controler storage
+      real :: last_yerr_norm, last_step_size
+
    contains
 
       procedure :: init
       procedure :: apply
       procedure :: iterate_newton
       procedure :: refine_step
-
+      procedure :: interpolate_newton_init
    end type ode_stepper_radauIIA
 
 contains
 
-   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
+   subroutine refine_step(this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error)
       class(ode_stepper_radauIIA), intent(inout) :: this
       class(ode_system), intent(inout) :: sys
       real, intent(in) :: t
@@ -55,12 +58,11 @@ contains
       !> local variables
       integer :: i, err, s, n
       real, pointer :: Z(:,:), e(:)
-      real :: yerr_norm, atol, rtol, sc, sfactor
+      real :: yerr_norm, atol, rtol, sc, sfactor, hnew_tmp
       real, parameter :: c1 = 1.0, c2 = 1.2
+      real, parameter :: d1=0.2, d2=8.0
 
       err = FPDE_STATUS_OK
-
-      accept = .false.
 
       !> If Newton iteration converged refine step size,
       !! if not halve step step size and restart computations
@@ -78,8 +80,7 @@ contains
          else
             !> compute derivatives needed for error estimation,
             !! use yerr as storage
-            call sys%fun(t, y0, yerr, &
-                 &       sys % params, sys % status)
+            call sys%fun(t, y0, yerr, sys % params, sys % status)
 
             if ( sys % status /= FPDE_STATUS_OK ) then
                ! this % status = sys % status !@todo
@@ -109,29 +110,29 @@ contains
          atol = this % atol
          rtol = this % rtol
 
-         !> use this % ytmp as storage scaled y error in case of further
-         !! yerr usage
-         do i=1,n
-            sc = atol + max( abs(y0(i)), abs(y1(i)) )*rtol
-            this % ytmp(i) = yerr(i)/sc
-            ! @todo check for 0 division
-         end do
+         ! !> use this % ytmp as storage scaled y error in case of further
+         ! !! yerr usage
+         ! do i=1,n
+         !    sc = atol + max( abs(y0(i)), abs(y1(i)) )*rtol
+         !    this % ytmp(i) = yerr(i)/sc
+         !    ! @todo check for 0 division
+         ! end do
 
-         yerr_norm = norm2(this % ytmp)/sqrt(1.0*n)
-         ! print *, "err: ", yerr_norm
+         ! yerr_norm = norm2(this % ytmp)/sqrt(1.0*n)
+         ! ! print *, "err: ", yerr_norm
 
+!------------------------------------------------------------------------------
          if ( this%first_step .or. this%last_step_rejected ) then
-            !> compute another error estimator
+            !> compute another error estimator, this error estimator
+            !! uses previously computed vector yerr
 
             this % ytmp = y0 + yerr
             ! print *, "yerr: ", yerr
             ! print *, "y0: ", y0
             ! print *, "ytmp: ", this % ytmp
-
             ! stop
 
-            call sys%fun(t, this % ytmp, yerr, &
-                 &       sys % params, sys % status)
+            call sys%fun(t, this % ytmp, yerr, sys % params, sys % status)
 
             if ( sys % status /= FPDE_STATUS_OK ) then
                ! this % status = sys % status !@todo
@@ -142,51 +143,80 @@ contains
 
             yerr = yerr*hold/gamma + e(1)*Z(:,1) + e(2)*Z(:,2) + e(3)*Z(:,3)
             yerr = gamma/hold*matmul(this%Asmall, yerr)
-            do i=1,n
-               sc = atol + max( abs(y0(i)), abs(y1(i)) )*rtol
-               this % ytmp(i) = yerr(i)/sc
-               ! @todo check for 0 division
-            end do
-            yerr_norm = norm2(this % ytmp)/sqrt(1.0*n)
-
-            sfactor = 0.9*( 2.0*this%kmax + 1)/( 2.0*this%kmax + this%k_last )
-
-            hnew = sfactor * hold * yerr_norm**(-1.0/4.0)
-
-            if ( yerr_norm < 1 ) then
-               accept = .true.
-            end if
-
-
-            ! print *, "err: ", yerr_norm
-            ! print *, "sfactor: ", sfactor
-            ! print *, "factor: ", sfactor*yerr_norm**(-1.0/4.0)
-            ! print *, "hold: ", hold
-            ! print *, "hnew: ", hnew
-            ! print *, "accept: ", accept
-            ! stop
-
-            if ( .not. this % jac_recompute ) then
-               !> !@todo do not perform LU factorization, there
-               !! should be more workspace to store Asmall^{-1}
-               !! to take full advantage of this opportunity
-               if ( c1*abs(hold) <= abs(hnew) .and. abs(hnew) <= c2*abs(hold) ) then
-                  hnew = hold
-               end if
-            end if
-
-            !> set step rejection flag to avoid function call
-            !! and error \f$ \tilse{yerr} \f$ estimation in the
-            !! next step
-            if ( abs(hnew) < abs(hold) ) then
-               this%last_step_rejected = .true.
-            else
-               this%last_step_rejected = .false.
-            end if
 
          end if
-      else !> restart computations with smaller step size
+!------------------------------------------------------------------------------
+
+         !> Compute the scaled y error
+         atol = this % atol
+         rtol = this % rtol
+         do i=1,n
+            sc = atol + max( abs(y0(i)), abs(y1(i)) )*rtol
+            this % ytmp(i) = yerr(i)/sc
+            ! @todo check for 0 division
+         end do
+         yerr_norm = norm2(this % ytmp)/sqrt(real(n))
+
+
+         !> Set the step status for marcher (accept) and for
+         !! stepper (this%last_step_rejected)
+         !! (this will avoid one function call when computing
+         !! error estimation \f$ \tilde{yerr} \f$ if this step
+         !! is accepted
+         if ( yerr_norm < 1 ) then
+            accept = .true.
+            this%last_step_rejected = .false.
+            !> Save error norm and previous step size for next use
+            this%last_yerr_norm = yerr_norm
+            this%last_step_size = hold
+
+         else !> yerr_norm >= 1
+            accept = .false.
+            this%last_step_rejected = .true.
+            print *, t, yerr_norm                                         !> @ERROR ??
+         end if
+
+         !> Determine safety factor
+         sfactor = 0.9*( 2.0*this%kmax + 1)/( 2.0*this%kmax + (this%k_last+1) )
+
+         !> If this is a first integration step then use standard step size
+         !! controller and initialize predictive one
+         if ( this%first_step ) then
+            hnew = sfactor * hold * yerr_norm**(-1.0/4.0)
+            if( accept ) this%first_step = .false.
+         else
+            hnew = sfactor * hold * hold/(this%last_step_size) &
+                 * (this%last_yerr_norm)**(1.0/4.0) * (yerr_norm)**(-1.0/2.0)
+            hnew = min(hnew, sfactor * hold * yerr_norm**(-1.0/4.0))
+         end if
+
+         !> Restrict hte new step size
+         !! d1 <= hnew/hold <= d2
+         if ( hold*d1 > hnew ) hnew = d1*hold
+         if ( hnew > hold*d2 ) hnew = d2*hold
+
+         ! print *, "err: ", yerr_norm
+         ! print *, "sfactor: ", sfactor
+         ! print *, "factor: ", sfactor*yerr_norm**(-1.0/4.0)
+         ! print *, "hold: ", hold
+         ! print *, "hnew: ", hnew
+         ! print *, "accept: ", accept
+         ! stop
+
+         if ( .not. this % jac_recompute ) then
+            !> !@todo do not perform LU factorization, there
+            !! should be more workspace to store Asmall^{-1}
+            !! to take full advantage of this opportunity
+            if ( c1*abs(hold) <= abs(hnew) .and. abs(hnew) <= c2*abs(hold) ) then
+               hnew = hold
+            end if
+         end if
+
+      else !> Newton interation failed (this % newton_status != FPDE_STATUS_OK)
+         !! restart computations with smaller step size
          hnew = hold/2.0
+         accept = .false.
+         this%last_step_rejected = .true.
          call this%log(FPDE_LOG_DEBUG, "STEP HALVED")
       end if
 
@@ -236,15 +266,12 @@ contains
               &              (16+Sqrt(6.))/36., &
               &              1./9. ]
 
-         p % bt % b = [ (16-Sqrt(6.))/36., &
-              &         (16+Sqrt(6.))/36., &
-              &         1./9. ]
+         p % bt % b = [ (16-Sqrt(6.))/36., (16+Sqrt(6.))/36., 1./9. ]
 
          p % d = [ 0.0, 0.0, 1.0 ]
 
-         p % bt % ec = [ -13.-7*sqrt(6.), &
-              &          -13.+7*sqrt(6.), &
-              &          -1. ]/gamma/3.0
+         p % bt % ec = &
+              [ -13.-7*sqrt(6.), -13.+7*sqrt(6.), -1. ]/gamma/3.0
 
          allocate( p % ASmall(n,n), p % ALarge(2*n,2*n) )
 
@@ -309,6 +336,20 @@ contains
 
    end subroutine init
 
+   subroutine interpolate_newton_init(this, w, z, q)
+      class(ode_stepper_radauIIA), intent(inout) :: this
+      real, intent(in) :: w
+      real, intent(in) :: z(:,:)
+      real, intent(out) :: q(:)
+
+      q(:) = w*(5.531972647421809 + w*(21.112754694671032 + 15.580782047249224*w))*z(:,1) &
+           + w*(-7.531972647421808 + (-16.446088028004365 - 8.914115380582556*w)*w)*z(:,2) &
+           + (1. + w*(5. + w*(7.333333333333333 + 3.3333333333333335*w)))*z(:,3)
+
+   end subroutine interpolate_newton_init
+
+
+
    subroutine apply(this, sys, y, t, h, yerr, dydt_in, dydt_out, error)
       class(ode_stepper_radauIIA), intent(inout) :: this
       class(ode_system), intent(inout) :: sys
@@ -320,7 +361,8 @@ contains
       integer, optional, intent(out) :: error
       !> local variables
       integer :: i, j, n, s, err
-      real, pointer :: Z(:)
+      real :: argw
+      real, pointer :: Z(:), Z_ns(:,:), W_ns(:,:)
 
       err = FPDE_STATUS_OK
 
@@ -328,28 +370,31 @@ contains
       s = this % stages
 
       !> Compute Jacobian matrix
-      if ( associated(sys%jac) ) then
-         call this%log(FPDE_LOG_DEBUG, "call sys%jac")
-         call sys%jac(t, y, this % J, this % dfdt, &
-              &       sys % params, sys % status)
-         if ( sys % status /= FPDE_STATUS_OK ) then
-            ! this % status = sys % status !@todo
-            err = sys % status
-            call this%log(FPDE_LOG_ERROR, "ode_system call failed")
-            return ! @todo
+      if ( this % jac_recompute ) then
+         if ( associated(sys%jac) ) then
+            call this%log(FPDE_LOG_DEBUG, "call sys%jac")
+            call sys%jac(t, y, this % J, this % dfdt, &
+                 &       sys % params, sys % status)
+            if ( sys % status /= FPDE_STATUS_OK ) then
+               ! this % status = sys % status !@todo
+               err = sys % status
+               call this%log(FPDE_LOG_ERROR, "ode_system call failed")
+               return ! @todo
+            end if
+            call this%log(FPDE_LOG_DEBUG, "call sys%jac passed")
+
+         else
+            !> @todo implement algorith which will compute jacobian matrix
+            !! via finite difference approximation with a selected order
+            call this%log(FPDE_LOG_DEBUG, "calculating Jacobian matrix via FDA")
+            call this%log(FPDE_LOG_ERROR, "functionality not implemented yet")
+
          end if
-         call this%log(FPDE_LOG_DEBUG, "call sys%jac passed")
-
-      else
-         !> @todo implement algorith which will compute jacobian matrix
-         !! via finite difference approximation with a selected order
-         call this%log(FPDE_LOG_DEBUG, "calculating Jacobian matrix via FDA")
-         call this%log(FPDE_LOG_ERROR, "functionality not implemented yet")
-
       end if
 
       !> Construct Asmall and Alarge matrices
       call this%log(FPDE_LOG_DEBUG, "constructing Asmall matrix: start")
+      !> @todo do not recompute Asmall if jacobian is not not recomputed
       this % Asmall = - this % J
       ! this % Asmall = - transpose( this % J )
       do i=1,n
@@ -412,10 +457,23 @@ contains
          call this%log(FPDE_LOG_ERROR, "LU factorization  of Alarge failed, singular U")
       end if
 
-      !> Generate starting values for the Newton iteration
-      !> @todo
+      !> Generate starting values for Newton iteration
       call this%log(FPDE_LOG_DEBUG, "generate init values for Netwton iteration")
-      this % Z = 0.0
+      if( this%newton_status /= FPDE_STATUS_OK .or. this%first_step ) then
+         this%Z = 0.0
+      else !> use interpolation (use this%W as temporary storage)
+         Z_ns(1:n,1:s) => this%Z
+         W_ns(1:n,1:s) => this%W
+
+         do i=1,3
+            argw = (h/this%last_step_size)*this%bt%c(i) !> w*c_i
+            call this%interpolate_newton_init( w=argw, z=Z_ns, q=W_ns(:,i) )
+         end do
+         !> z^0_i = q(1+w*c_i)-d_3*z_3
+         do i=1,3
+            Z_ns(:,i) = W_ns(:,i) - Z_ns(:,3)
+         end do
+      end if
 
       call this%log(FPDE_LOG_DEBUG, "Newton solver: start")
       call this%iterate_newton(sys, y, t, h, err)
@@ -482,7 +540,7 @@ contains
 
       this % newton_status = FPDE_STATUS_ERROR
 
-      do k=0,kmax
+      do k=0,kmax-1
          ! print *, "przed"
          ! print *, F
          !> Compute F(Z^k) and store it in this%FZ(:)
@@ -524,6 +582,7 @@ contains
          F_ns(:,2) = F_ns(:,2) - ( alpha*W_ns(:,2) - beta*W_ns(:,3) )/h
          F_ns(:,3) = F_ns(:,3) - ( beta*W_ns(:,2) + alpha*W_ns(:,3) )/h
 
+
          !> Solve LU small system
          call getrs( a=this%Asmall, ipiv=this%pivot(1:n), b=F(1:n), info=err )
          if ( err /= 0 ) then !> (info = -i) the i-th parameter had an illegal value
@@ -551,9 +610,14 @@ contains
          Z = matmul(this % TT_cr_ID, W)
 
          !> Check the convergence of Newton's method
-         dz_norm = norm2(F) !> dW is stored in F
-
+         ! dz_norm=0.0
+         ! do i=1,s*n
+         !    dz_norm = dz_norm + (F(i)/(this%atol + abs(F(i))*this%rtol))**2
+         ! end do
+         ! dz_norm = sqrt( dz_norm/real(s*n) )
+         dz_norm = norm2(F)/sqrt(real(s*n)) !> dW is stored in F
          !> @todo use proper norm, compatible with local error estimation
+
          if ( k == 0 ) then
             dz_norm_last = dz_norm
             eta = ( max(this % eta_last, min_real) )**0.8  !> eta_0
@@ -570,18 +634,19 @@ contains
             if ( theta >= 1.0 .or. divtest > 0.0 ) then
                !> the Newton's diverged how to get this info to the marcher?
                call this%log(FPDE_LOG_DEBUG, "Newton iteration diverged")
-               print *, "# k: ", k, ", theta: ", theta, ", divtest: ", divtest
+               ! print *, "# k: ", k, ", theta: ", theta, ", divtest: ", divtest
+
+               print '("# k: ",I2," theta: ",ES10.3," divtest: ",ES10.3)', &
+                    k, theta, divtest
+
                !> set newton status flag
                this % newton_status = FPDE_STATUS_ERROR
                return !> leave function ! @todo
             end if
          end if
 
-         !> if no divergence detected, save value of eta for the next step
-         this % eta_last = eta
-
          !> Convergence criterion
-         if ( k > 0 ) then
+         if ( k >= 0 ) then                                                !@todo >= ? >
             if ( eta*dz_norm <= kappatol ) then
                !> accept current Z as a solution to the Newton's procedure
                call this%log(FPDE_LOG_DEBUG, "Newton iteration converged")
@@ -594,6 +659,10 @@ contains
 
       !> save number of iterations
       this % k_last = k
+
+      !> if no divergence detected, save value of eta
+      !! for the next integration step
+      this % eta_last = eta
 
       if ( err == FPDE_STATUS_OK ) then
 

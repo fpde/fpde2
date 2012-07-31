@@ -59,7 +59,7 @@ program radauIIA_marcher_RUN
    !> use the apply method
    call m%log(FPDE_LOG_INFO, "call m%apply")
    time = odeiv%t(0)
-   tstep = 1.0e-6
+   tstep = 1.0e-7
 
    ! do i=1,200
    !    call s%apply(sys=odeiv%sys, y=ysol, t=time, h=tstep, error=err)
@@ -75,7 +75,8 @@ program radauIIA_marcher_RUN
    odeiv%t(1) = 2.0
    do while ( time < odeiv%t(1) )
       call m%apply(sys=odeiv%sys, y=ysol, t=time, t1=odeiv%t(1), h=tstep, error=err)
-      print '(200(es22.14))', i*1., time, ysol(1:2), tstep, 1.0*s%k_last
+      ! print '(6(es22.14),I3,I3,es22.14)', i*1., time, ysol(1:2), &
+      !      tstep, 1.0*s%k_last, s%jac_recompute, m%failed_steps, s%last_yerr_norm
       i = i + 1
       if ( err /= FPDE_STATUS_OK ) then
          print *, "ERROR: ", err
@@ -83,7 +84,9 @@ program radauIIA_marcher_RUN
       end if
    end do
 
-
+   print *, "---------------"
+   print '(I)', .true.
+   print '(I)', .false.
 
    if ( err .ne. FPDE_STATUS_OK ) then
       call m%log(FPDE_LOG_ERROR, "m%apply test failed")
@@ -99,7 +102,7 @@ program radauIIA_marcher_RUN
    call s%log(FPDE_LOG_INFO, "call s%apply")
 
    time = odeiv%t(0)
-   tstep = 0.1e-6
+   tstep = 1.0e-6
 
    ! call s%apply(sys = odeiv%sys, y = ysol, t = time, h = tstep, error=err)
 

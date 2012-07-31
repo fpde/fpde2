@@ -28,7 +28,7 @@ module class_ode_stepper_rk_implicit_abstract
 
       real, pointer, contiguous :: ytmp(:) !> n
 
-      integer :: kmax = 8
+      integer :: kmax = 7
       integer :: k_last
       real :: tol = 1.0e-4
       real :: kappa = 5.0e-2

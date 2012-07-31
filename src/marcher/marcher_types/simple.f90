@@ -13,6 +13,7 @@
 !! - [ ] real, pointer, contiguous :: y0(:) => null() causes
 !! compilation error: "If dummy argument is declared CONTIGUOUS,
 !! actual argument must be contiguous as well"
+!! - [ ] change the goto 100 statement to the while loop
 !!
 module class_ode_marcher_simple
 
@@ -77,9 +78,9 @@ contains
       p % name = "marcher_simple"
       n = p % dim
 
-      ! ! m % count = 0
-      ! ! m % failed_steps = 0
-      ! ! m % last_step = 0.0
+      p % count = 0
+      p % failed_steps = 0
+      p % last_step = 0.0
 
       if ( n .le. 0 ) then
          call p%log(FPDE_LOG_ERROR, "Dimension passed in init cannot be <= 0")
