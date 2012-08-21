@@ -7,7 +7,9 @@
 !!
 !!
 !!
-!! @todo implement function_registry using lists
+!! @todo implement function_registry using lists (or using automatic
+!! allocatable arrays, see
+!! https://groups.google.com/forum/?fromgroups#!topic/comp.lang.fortran/y55CmdRiXao )
 module class_func_registry
 
   use logger_module
@@ -88,7 +90,7 @@ contains
     integer :: i, j, nx2
 
     ! trick
-    nx2 = int(exp(sum(log(real(this%nx)))))
+    nx2 = product(this%nx)
 
     if( this%total_size() > size(a)) return
 
@@ -111,10 +113,6 @@ contains
   subroutine set_nx(p, nx)
     class(func_registry) :: p
     integer, intent(in) :: nx(:)
-
-    if( associated(p%nx) ) deallocate(p%nx)
-
-    allocate(p%nx(size(nx)))
 
     p%nx = nx
 
@@ -189,7 +187,7 @@ contains
 
     if( present( f   ) ) f   => f_temp
     if( present( vec ) ) vec => f_temp%val
-    if( present( scal) ) scal=> f_temp%val(i)
+    if( present( scal) ) scal=> f_temp%val(1)
     if( present( index)) index= i
   end subroutine get
 

@@ -2,7 +2,6 @@ module boundary_factory
 
   use constants_module
   use class_boundary
-  use class_solver_simple
   use class_boundary_dirichlet
   use class_boundary_periodic
 

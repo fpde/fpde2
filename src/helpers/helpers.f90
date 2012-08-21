@@ -76,7 +76,7 @@ contains
 
 
   !> @todo [0] implement as a call to findloc_first_logical
-  function findloc_first_character ( array, val ) result(i)
+  pure function findloc_first_character ( array, val ) result(i)
     character(len=*), intent(in) :: array(:), val
     integer :: i
 
@@ -91,7 +91,7 @@ contains
   end function findloc_first_character
 
 
-  function join(chars,separator) result(r)
+  pure function join(chars,separator) result(r)
     character(len=*), intent(in) :: chars(:), separator
     character(len=NAME_LEN) :: r
 

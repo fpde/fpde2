@@ -19,9 +19,12 @@ module class_icicles
 
   private
 
+  integer, parameter :: buff = 1
+
   type :: named_vector
      real, pointer :: val(:) => null()
-     character(len=NAME_LEN) :: name = ""
+     ! character(len=NAME_LEN) :: name = ""
+     character(len=:), allocatable :: name
      integer :: length = 0
   end type named_vector
 
@@ -29,9 +32,11 @@ module class_icicles
   type, public, extends(platonic) :: icicles
      private
      type(named_vector), allocatable :: vectors(:)
+     integer :: nv = 0
    contains
      procedure :: init
      procedure :: add
+     procedure :: clear
      procedure :: get
      procedure :: set_pointers
      procedure :: total_length
@@ -45,21 +50,52 @@ contains
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
     p%name = "Icicles"
+    allocate(p%vectors(0))
   end subroutine init
 
 
-  subroutine add(this, name, length)
+  subroutine add(this, name, length, ptr)
     class(icicles) :: this
     character(len=*), intent(in) :: name
     integer, intent(in) :: length
+    real, target, optional, intent(in) :: ptr(:)
 
+    integer :: nv
     type(named_vector) :: v
+    type(named_vector), allocatable :: temp_vectors(:)
 
-    v % name = name
+    v % name = trim(name)
     v % length = length
-    this%vectors = [ this%vectors, v ]
+    if( present(ptr) ) then
+       if( size(ptr) >= length ) then
+          v % val => ptr
+       end if
+    end if
+    ! ! @todo possible ifort bug with realloc_lhs
+    temp_vectors = this%vectors
+    this%vectors = [ temp_vectors, v ]
+
+    ! alternative implementation
+    ! nv = this%nv
+    ! this%nv = nv + 1
+    ! if( nv + 1 > size(this%vectors) ) then
+    !    ! realloc
+    !    temp_vectors = this%vectors
+    !    deallocate(this%vectors)
+    !    allocate(this%vectors(nv+buff))
+    !    this%vectors(1:nv) = temp_vectors
+    ! end if
+    ! this%vectors(nv+1) = v
 
   end subroutine add
+
+
+  subroutine clear(this)
+    class(icicles), target :: this
+    deallocate(this%vectors)
+    allocate(this%vectors(0))
+    ! this%nv = 0
+  end subroutine clear
 
 
   subroutine get(this, name, vec, scal, error)
@@ -69,8 +105,8 @@ contains
     ! type(named_vector), pointer, optional :: named
     integer, intent(out), optional :: error
 
-    ! integer :: i
     type(named_vector), pointer :: v
+    integer :: nv
 
     if(present(error)) error = FPDE_STATUS_OK
 
@@ -79,6 +115,9 @@ contains
     if( present( vec   ) ) nullify(vec)
     if( present( scal  ) ) nullify(scal)
 
+    nv = size(this%vectors)
+    ! alternative implementation
+    ! nv = this%nv
     v => first_match(this%vectors, name)
 
     if( .not. associated(v) ) then
@@ -94,32 +133,52 @@ contains
   end subroutine get
 
 
-  subroutine set_pointers(self, names, vec, error)
+  subroutine set_pointers(self, vec, names, error)
     class(icicles), target :: self
-    character(len=*), intent(in) :: names(:)
     real, target, intent(in) :: vec(:)
+    character(len=*), intent(in), optional :: names(:)
     integer, optional, intent(out) :: error
 
-    integer :: i, n, j
-    class(named_vector), pointer :: nv
-    n = size(vec)
+    integer :: i, j, tl, nv
+    class(named_vector), pointer :: n_v
     j = 1
 
     if( present(error) ) error = FPDE_STATUS_OK
-    do i = 1, size(self%vectors)
-       nv => self%vectors(i)
-       if( any(names == nv%name) ) then
-          if( j+nv%length-1 <= n ) then
-             nv%val => vec(j:j+nv%length-1)
-             j = j+nv%length
-          else
-             call self%log(FPDE_LOG_ERROR,&
-                  "set_pointers: Target vector too small.")
-             if( present(error) ) error = FPDE_STATUS_OK
-             return
+
+
+    if(present(names)) then
+       tl = self%total_length(names)
+    else
+       tl = self%total_length()
+    end if
+
+    ! check size of vec
+    if( tl > size(vec) ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "set_pointers: Target vector too small.")
+       if( present(error) ) error = FPDE_STATUS_OK
+       return
+    end if
+
+    nv = size(self%vectors)
+    ! alternative implementation
+    ! nv = self%nv
+
+    do i = 1, nv
+
+       n_v => self%vectors(i)
+
+       if( present(names) ) then
+          if( all(names /= n_v%name) ) then
+             continue
           end if
        end if
+
+       n_v%val => vec(j:j+n_v%length-1)
+       j = j+n_v%length
+
     end do
+
 
   end subroutine set_pointers
 
@@ -129,17 +188,21 @@ contains
     integer :: total_length
     character(len=*), intent(in), optional :: names(:)
 
-    integer :: i
-    class(named_vector), pointer :: nv
+    integer :: i, nv
+    class(named_vector), pointer :: n_v
+
+    nv = size(self%vectors)
+    ! alternative implementation
+    ! nv = self%nv
 
     if( .not. present(names) ) then
-       total_length = sum(self%vectors%length)
+       total_length = sum(self%vectors(1:nv)%length)
     else
        total_length = 0
-       do i = 1, size(self%vectors)
-          nv => self%vectors(i)
-          if( any(names == nv%name) ) then
-             total_length = total_length + nv%length
+       do i = 1, nv
+          n_v => self%vectors(i)
+          if( any(names == n_v%name) ) then
+             total_length = total_length + n_v%length
           end if
        end do
     end if

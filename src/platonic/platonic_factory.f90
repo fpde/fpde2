@@ -29,8 +29,8 @@ contains
 
     use constants_module
     use class_platonic
-    use solver_factory
-    use boundary_factory
+    ! use solver_factory
+    ! use boundary_factory
 
     character(len=*), intent(in) :: id
     integer, optional, intent(out) :: error
@@ -59,12 +59,12 @@ contains
     ! this selects the factory based on type name
     select case(trim(major))
 
-       ! call solver_new for solver types
-    case( "solver" )
-       p => solver_new(id)
+    !    ! call solver_new for solver types
+    ! case( "solver" )
+    !    p => solver_new(id)
 
-    case( "boundary" )
-       p => boundary_new(id)
+    ! case( "boundary" )
+    !    p => boundary_new(id)
 
        ! default behavior of factory is to nullify, but here we make an
        ! exception and allocate platonic type instead. It will be used to

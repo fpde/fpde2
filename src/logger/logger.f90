@@ -25,8 +25,6 @@ module logger_module
      integer :: status = 0       !0 means OK!
      character(len=NAME_LEN) :: name = "" !empty name should produce a warning
    contains
-     ! procedure :: init
-     ! procedure :: free
      procedure, non_overridable :: log
   end type named
 

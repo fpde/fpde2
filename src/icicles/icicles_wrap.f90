@@ -36,7 +36,7 @@ module class_icicles_wrap
      character(len=:), allocatable :: options(:)
      !> boundary_box contains all information about boundray
      !! conditions
-     class(boundary_box), pointer :: boundary => null()
+     type(boundary_box) :: box
      !> e.g. shape = [nx,ny,nz] etc. for scalar it should be [1]
      integer, allocatable :: shape(:)
   end type param
@@ -51,14 +51,21 @@ module class_icicles_wrap
      type(icicles), pointer :: ic => null()
      type(param), allocatable :: params(:) !array of parameters
      integer, allocatable:: nx(:)
+     logical :: after_init = .false.
    contains
      ! procedure :: from_lua
      procedure :: init
      procedure :: set_nx
-     procedure :: get_nx
+     procedure :: set_pointers
+     procedure :: total_length
+     procedure, private :: get_all_nx
+     procedure, private :: get_some_nx
+     generic :: get_nx => get_all_nx, get_some_nx
      procedure :: add
+     procedure :: add_spatial
      procedure :: get_names
      procedure :: get
+     procedure, nopass :: derivative_name
   end type icicles_wrap
 
 contains
@@ -67,75 +74,273 @@ contains
   subroutine init(p, error)
     class(icicles_wrap), target :: p
     integer, optional, intent(out) :: error
+
     if(present(error)) error = FPDE_STATUS_OK
     p%name = "icicles_wrap"
+
+    ! allocate icicles
     allocate(p%ic)
-    p%nx=[1]
+    call p%ic%init()
+
+    ! allocate parameters
+    allocate(p%params(0))
+
+    ! check if nx was set
+    if( .not. allocated(p%nx) ) then
+       call p%log(FPDE_LOG_ERROR, &
+            "nx not set, use set_nx([nx1,nx2,...]) before init()")
+       if(present(error)) error = FPDE_STATUS_OK
+    end if
+
+    p%after_init = .true.
   end subroutine init
 
 
   subroutine set_nx(self, nx)
     class(icicles_wrap) :: self
     integer :: nx(:)
-    self%nx = nx
+
+    if( .not. self%after_init ) then
+       self%nx = nx
+    else
+       call self%log(FPDE_LOG_WARNING,&
+            "Setting nx is forbidden after calling init().")
+    end if
+
   end subroutine set_nx
 
+  subroutine set_pointers(self, vec, names, error)
+    class(icicles_wrap), target :: self
+    real, target, intent(in) :: vec(:)
+    character(len=*), intent(in), optional :: names(:)
+    integer, optional, intent(out) :: error
 
-  function get_nx(self)
+    integer :: err
+
+    if( self%after_init ) then
+       if( present(names) ) then
+          call self%ic%set_pointers(vec, names, error = err)
+       else
+          call self%ic%set_pointers(vec, error = err)
+       end if
+
+       if(present(error)) error = err
+       return
+    else
+       call self%log(FPDE_LOG_WARNING,&
+            "Trying to call set_pointers on uninitialized icicles_wrap&
+            &. Call init() first.")
+       if(present(error)) error = FPDE_STATUS_ERROR
+    end if
+
+  end subroutine set_pointers
+
+
+  function total_length(self, names)
+    class(icicles_wrap), target :: self
+    integer :: total_length
+    character(len=*), intent(in), optional :: names(:)
+
+    if(present(names)) then
+       total_length = self%ic%total_length(names)
+    else
+       total_length = self%ic%total_length()
+    end if
+
+  end function total_length
+
+
+  !> Returns base shape of data in icicles
+  !!
+  !! @return [nx1,nx2,...]
+  !!
+  function get_all_nx(self)
     class(icicles_wrap) :: self
-    integer, allocatable :: get_nx(:)
-    get_nx = self%nx
-  end function get_nx
+    integer, allocatable :: get_all_nx(:)
+    get_all_nx = self%nx
+  end function get_all_nx
+
+  !> Returns a shape of data in a direction given by var
+  !!
+  !! @return nx(var)
+  !!
+  function get_some_nx(self, var)
+    class(icicles_wrap) :: self
+    integer, intent(in) :: var
+    integer :: get_some_nx
+    get_some_nx = self%nx(var)
+  end function get_some_nx
 
 
+  !> returns names matching option
+  !!
+  !! @todo regexp options
+  !!
+  !! @param option
+  !!
   function get_names(self, option)
     class(icicles_wrap), intent(in) :: self
-    character(len=*), intent(in) :: option
+    character(len=*), intent(in), optional :: option
     character(len=:), allocatable :: get_names(:)
 
-    get_names = pack(self%params%name, optionq(self%params,option))
+    if(present(option)) then
+       get_names = pack(self%params%name, optionq(self%params,option))
+    else
+       get_names = self%params%name
+    end if
+
   end function get_names
 
 
-  subroutine add(self, name, options, shape, boundary, error)
+  !> Implemented for convenient use, it calls add() for each element
+  !! of spatial with options = icw_spatial
+  !!
+  !! @param spatial
+  !! @param error
+  !!
+  !! @todo 10 add flag add_spatial_ok to icw, and make it the only way
+  !! to set up the spatial variables. Also, optimize against calls of
+  !! get(spatial_variable).
+  !!
+  subroutine add_spatial(self, spatial, error)
+    class(icicles_wrap) :: self
+    character(len=*), intent(in) :: spatial(:)
+    integer, intent(out), optional :: error
+
+    integer :: i, err
+
+    if( .not. self%after_init) then
+       err = FPDE_STATUS_ERROR
+       call self%log(FPDE_STATUS_ERROR,&
+            "Calling add_spatial() before init().")
+       return
+    else if( size(spatial) /= size(self%get_nx()) ) then
+       err = FPDE_STATUS_ERROR
+       call self%log(FPDE_STATUS_ERROR,&
+            "Calling add_spatial() with spatial incompatible with nx(:).")
+       return
+    else
+       do i = 1, size(spatial)
+          call self%add(&
+               name = spatial(i),&
+               options = [icw_spatial],&
+               error = err)
+       end do
+    end if
+
+    !! @bug, err can be changed several times in a do loop above
+    if(present(error)) error = err
+
+  end subroutine add_spatial
+
+
+  !> Function used to add entries to icicles_wrap.
+  !!
+  !! add() lets the user to add entries to icicles_wrap. Each entry
+  !! can be later on accessed with get(). All arguments besides name
+  !! are optional.
+  !!
+  !! @param name name of the entry to be added
+  !! @param options array of options of the entry
+  !! @param shape shape of the entry
+  !! @param box boundary condtitions of the entry
+  !! @param derivatives possible derivatives of the entry
+  !! @param error
+  !!
+  recursive subroutine add(self, name, options, shape,&
+       box, derivatives, error)
+    use class_boundary
     class(icicles_wrap) :: self
     character(len=*), intent(in) :: name
-    character(len=*), intent(in), optional ::  options(:)
+    character(len=*), intent(in), optional ::  options(:),&
+         derivatives(:,:)
     integer, intent(in), optional :: shape(:)
-    class(boundary_box), intent(in), target, optional :: boundary
+    class(boundary_box), intent(in), target, optional :: box
     integer, intent(out), optional :: error
 
     ! local variables
     type(param) :: p
     ! temporary variables needed to circumvent the bug
     type(param), allocatable :: pp(:)
+    integer :: i, j, err, maxlen
+    ! boundary variables
+    character(len=:), allocatable :: parameters(:), spatial(:),&
+         lnames(:), rnames(:)
+    class(boundary), pointer :: lb, rb
 
     if(present(error)) error = FPDE_STATUS_OK
 
     if(any(self%params%name==name)) then
        if(present(error)) error = FPDE_STATUS_ERROR
        call self%log(FPDE_LOG_ERROR,&
-            "add: Could not add a duplicate entry ["//trim(name)//"]")
+            "add: Trying to add a duplicate entry ["&
+            //trim(name)//"], ignoring.")
        return
     end if
 
     ! initialize entry
     p%name = name
 
-    if(present(boundary)) then
-       p%boundary => boundary
-    end if
-
-    if(present(options)) then
+    if( present(options) ) then
        p%options = options
     else
+       ! by default allocate zero-sized options
        allocate(character(len=0)::p%options(0))
     end if
 
-    if(present(shape)) then
+    if( present(shape) ) then
        p%shape = shape
     else
-       p%shape = [1]
+       ! default shape
+       p%shape = self%get_nx()
+    end if
+
+    if( present(box) ) then
+       ! @todo enclose in add_boundary_box(...)
+       spatial = self%get_names(icw_spatial)
+       if( size(spatial) < size(self%get_nx()) ) then
+          call self%log(FPDE_LOG_ERROR,&
+               "Unable to add function with boundary conditions, no sp&
+               &atial variables were specified.")
+          if(present(error)) error = FPDE_STATUS_ERROR
+          return
+       else
+          ! add boundary_box
+          p%box = box
+          do i = 1, size(spatial)
+             call box%get(var = i, left = lb, right = rb)
+             lnames = lb%get_icw_param_names(name, spatial(i),icw_dir_left)
+             rnames = rb%get_icw_param_names(name, spatial(i),icw_dir_right)
+             maxlen = max(len(lnames), len(rnames))
+             parameters = [ character(len=maxlen) :: lnames, rnames ]
+             do j = 1, size(parameters)
+                call self%add(&
+                     name = parameters(j),&
+                     options = [p%options,icw_boundary],&
+                     shape = [p%shape(1:i-1),p%shape(i+1:)],&
+                     error = err)
+                if( err/= FPDE_STATUS_OK ) then
+                   if(present(error)) error = err
+                   return
+                end if
+             end do
+          end do
+       end if
+    end if
+
+    if(present(derivatives))then
+       ! @todo enclose in add_derivatives(...)
+       do i = 1, size(derivatives,2)
+          call self%add(&
+               name    = self%derivative_name(name, derivatives(:,i)), &
+               options = [p%options,icw_derivative],                   &
+               shape   = p%shape,                                      &
+               error   = err)
+          if( err/= FPDE_STATUS_OK ) then
+             if(present(error)) error = err
+             return
+          end if
+       end do
     end if
 
     ! add entry to registry
@@ -150,13 +355,18 @@ contains
     pp = [self%params, p]
     call move_alloc(pp, self%params)
 
-
     ! add entry to icicles
     call self%ic%add(name, product(p%shape))
 
   end subroutine add
 
-
+  !> Helper function to used find matching options
+  !!
+  !! @param o iciles_wrap entry of type(param)
+  !! @param el option we are looking for
+  !!
+  !! @return .true. if o has option el present
+  !!
   elemental logical function optionq(o, el)
     type(param), intent(in) :: o
     character(len=*), intent(in) :: el
@@ -164,11 +374,11 @@ contains
   end function optionq
 
 
-  subroutine get(self, name, vec, scal, options, boundary, shape, error)
+  subroutine get(self, name, vec, scal, options, box, shape, error)
     class(icicles_wrap), intent(in) :: self
     character(len=*), intent(in) :: name
     character(len=:), intent(out), optional, allocatable :: options(:)
-    class(boundary_box), intent(out), pointer, optional :: boundary
+    class(boundary_box), intent(out), pointer, optional :: box
     integer, intent(out), allocatable, optional :: shape(:)
     real, intent(out), optional, pointer :: vec(:), scal
     integer, intent(out), optional :: error
@@ -182,7 +392,7 @@ contains
     if(present(error)) error = FPDE_STATUS_OK
 
     call self%ic%get(name, v, s, err)
-    p => first_match(self%params, name )
+    p => first_match( self%params, name )
 
     if( .not. ( err == FPDE_STATUS_OK .and. &
        associated(p)) ) then
@@ -195,8 +405,8 @@ contains
     if( present(scal     ))  scal    => s
     if( present(vec      ))  vec     => v
     if( present(options  ))  options =  p%options
-    if( present(boundary )) boundary => p%boundary
-    if( present(shape    ))    shape =  p%shape
+    if( present(box      ))  box     => p%box
+    if( present(shape    ))  shape   =  p%shape
 
   end subroutine get
 
@@ -214,6 +424,17 @@ contains
     end do
 
   end function first_match
+
+
+  function derivative_name(fname, derivative) result(r)
+    character(len=*) :: fname, derivative(:)
+
+    character(len=NAME_LEN) :: r
+
+    r = icw_derivative_name// "(" // &
+         trim(fname) // "," // &
+         trim(join(derivative,",")) // ")"
+  end function derivative_name
 
 
 end module class_icicles_wrap

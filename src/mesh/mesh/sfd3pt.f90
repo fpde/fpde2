@@ -11,16 +11,16 @@
 module class_mesh_sfd3pt
   use constants_module
   use logger_module
-  use class_mesh
+  use class_mesh1d
 
   private
 
-  type, public, extends( mesh ) :: mesh_sfd3pt
+  type, public, extends( mesh1d ) :: mesh_sfd3pt
    contains
      ! overloaded procedures go here (if needed)
      procedure :: init
-     procedure :: diff_global
-     procedure :: diff_point
+     procedure :: diff
+     ! procedure :: diff_point
   end type mesh_sfd3pt
 
 contains
@@ -32,22 +32,26 @@ contains
     if(present(error)) error = FPDE_STATUS_OK
 
     p % name = "sfd3pt"
-    p % ghost_points = 1
-    p % max_derivative = 1
+    call p % set_ghost_points([1])
+    call p % set_calculable_derivatives(reshape([1],[1,1]))
 
   end subroutine init
 
-  subroutine diff_global( m, f, x, df, k )
-    class(mesh_sfd3pt), target, intent(inout) :: m
+  subroutine diff( self, f, x, df, k )
+    class(mesh_sfd3pt), target, intent(inout) :: self
     real, intent(in) :: f(:), x(:)
-    real, intent(out) :: df(:)
-    integer, intent(in) :: k
+    real, intent(out) :: df(:,:)
+    integer, intent(in) :: k(:)
 
-    integer :: j, n
+    integer :: j, n, kk
+    integer, allocatable :: ders(:,:)
+
     real :: h
 
-    if( k > m%max_derivative ) then
-       call m%log(FPDE_LOG_ERROR,&
+    ders = self%get_calculable_derivatives()
+
+    if( any( k > ders(:,1) ) ) then
+       call self%log(FPDE_LOG_ERROR,&
             "Too large rank of derivative to calculate with this mesh")
        return
     end if
@@ -55,39 +59,28 @@ contains
     n = size(f)
     h = x(2) - x(1)             ! we assume x is a uniform grid
 
-    if( k == 1 ) then
-       forall( j = 2 : n - 1 )
-          df(j)=(f(j+1)-f(j-1))/h/2.
-       end forall
-       df(1) = (f(2)-f(1  ))/h
-       df(n) = (f(n)-f(n-1))/h
-    end if
+    do kk = 1, size(k)
+       if( kk == 1 ) then
+          forall( j = 2 : n - 1 )
+             ! df(j,kk)=(f(j+1)-f(j-1))/h/2.
+             df(j,kk)=(f(j+1)-2*f(j)+f(j-1))/h/h
+          end forall
+          df(1,kk) = (f(2)-f(1  ))/h
+          df(n,kk) = (f(n)-f(n-1))/h
+       end if
+    end do
 
-  end subroutine diff_global
 
-  function diff_point( m, f, x, k, i ) result(d)
-    class(mesh_sfd3pt), target, intent(inout) :: m
+  end subroutine diff
+
+  function diff_point( self, f, x, k, i ) result(d)
+    class(mesh_sfd3pt), target, intent(inout) :: self
     integer, intent(in) :: i,k
     real, intent(in) :: f(:), x(:)
     real :: d
 
     integer :: j, n
     real :: h
-
-    if( k > m%max_derivative ) then
-       call m%log(FPDE_LOG_ERROR,&
-            "Too large rank of derivative to calculate with this mesh")
-       return
-    end if
-
-    n = size(f)
-    h = x(2) - x(1)             ! we assume x is a uniform grid
-
-    if( k == 1 ) then
-       if( 1 < i .and. i < n ) d = (f(i+1)-f(i-1))/h/2.
-       if( i == 1 )            d = (f(2  )-f(1  ))/h
-       if( i == n )            d = (f(n  )-f(n-1))/h
-    end if
 
   end function diff_point
 
