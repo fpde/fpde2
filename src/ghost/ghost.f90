@@ -30,18 +30,17 @@ contains
     integer, optional, intent(out) :: error
 
     integer :: err
-    integer, allocatable :: nx(:)
-    character(len=:), allocatable :: temporal(:)
+    ! integer, pointer :: nx(:)
+    character(len=NAME_LEN), allocatable :: temporal
 
     if(present(error)) error = FPDE_STATUS_ERROR
 
-    nx = icw%get_nx()
-
-    temporal = icw%get_names(icw_temporal)
+    ! temporal = icw%get_names(icw_temporal)
+    temporal = icw%get_temporal(err)
 
     ! check for any temporal derivatives
-    if( size(temporal) > 0 ) then
-       if( any(alpha2 == temporal(1)) ) then
+    if( err == FPDE_STATUS_OK ) then
+       if( any(alpha2 == temporal) ) then
           if(present(error)) error = FPDE_STATUS_ERROR
           call self%log(FPDE_LOG_ERROR, &
                "Temporal derivatives cannot be updated (due to unknown bo&
@@ -51,7 +50,7 @@ contains
     end if
 
     ! check if the mesh is compatible with icicles
-    if( size(nx) /= m%get_dim() ) then
+    if( size(icw%get_nx()) /= m%get_dim() ) then
        if(present(error)) error = FPDE_STATUS_ERROR
        call self%log(FPDE_LOG_ERROR, &
             "Mesh and data have incompatible dimensions.")

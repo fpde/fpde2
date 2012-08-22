@@ -3,7 +3,7 @@ module class_ghost1d
   use constants_module
   use class_platonic
   use class_icicles_wrap
-  use class_boundary
+  use class_iced_boundary
   use class_boundary_box
   use class_mesh1d
   use class_icicles
@@ -15,13 +15,47 @@ module class_ghost1d
      private
      real, allocatable :: x(:), f(:), df(:,:)
      real, allocatable :: f_left(:), f_right(:)
-     type(icicles) :: ic_l, ic_r
+     integer :: nx = 0, nd = 0, gp = 0
+     logical :: alloced = .false.
    contains
      procedure :: update_derivatives
+     procedure, private :: alloc
   end type ghost1d
 
 
 contains
+
+  subroutine alloc(self, nx, nd, gp)
+    class(ghost1d) :: self
+    integer, intent(in) :: nx, nd, gp
+
+    if( .not. self%alloced ) then
+       allocate(self%df(0,0))
+       allocate(self%x(0))
+       allocate(self%f(0))
+       allocate(self%f_left(0))
+       allocate(self%f_right(0))
+       self%alloced = .true.
+    end if
+
+    ! realloc if needed
+    if( self%nx < nx .or. self%nd < nd .or. self%gp < gp ) then
+       deallocate(self%df)
+       allocate(self%df(nx+2*gp,nd))
+       deallocate(self%x)
+       allocate(self%x(nx+2*gp))
+       deallocate(self%f)
+       allocate(self%f(nx+2*gp))
+       deallocate(self%f_left)
+       allocate(self%f_left(gp))
+       deallocate(self%f_right)
+       allocate(self%f_right(gp))
+       self%nx = nx
+       self%nd = nd
+       self%gp = gp
+    end if
+
+  end subroutine alloc
 
 
   subroutine update_derivatives(self, icw, fname, alpha2, m, error)
@@ -31,18 +65,19 @@ contains
     character(len=*), intent(in), target :: alpha2(:,:), fname
     integer, optional, intent(out) :: error
 
-    character(len=:), allocatable, save :: spatial(:), xname, dfname
+    character(len=:), allocatable, save :: dfname
+    character(len=NAME_LEN) :: xname
     integer, allocatable, save :: ndx(:)
     integer :: nx, nd, i, gp, err
     real, pointer :: x(:), f(:), df(:,:), df1(:)
-    class(boundary_box), pointer :: bbox
-    class(boundary), pointer :: b_left, b_right
+    type(boundary_box), pointer :: bbox
+    type(iced_boundary), pointer :: b_left, b_right
 
     ! get name of spatial variable
-    spatial = icw%get_names(icw_spatial)
+    ! spatial = icw%get_names(icw_spatial)
     ! at this point we assume that spatial is of size 1, it is safe
     ! because update_derivatives() already checked that.
-    xname   = spatial(1)
+    xname   = icw%get_spatial(1)
 
     ! translate string representation of alpha2 to integer
     ! representation
@@ -62,7 +97,9 @@ contains
 
 
     ! get boundary conditions
-    call bbox%get( 1, left = b_left, right = b_right, error = err )
+    ! call bbox%get( 1, left = b_left, right = b_right, error = err )
+    call bbox%get( 1, 1, b_left)
+    call bbox%get( 1, 2, b_right)
     if( err /= FPDE_STATUS_OK ) then
        call self%log(FPDE_LOG_ERROR,&
             "Unable to extract boundary conditions from boundary_box")
@@ -70,41 +107,10 @@ contains
        return
     end if
 
-    ! allocate df
-    if( .not. allocated(self%df) ) allocate(self%df(0,0))
-    if( size(self%df,1) < nx+2*gp .or. size(self%df,2) < nd ) then
-       deallocate(self%df)
-       allocate(self%df(nx+2*gp,nd))
-    end if
+    ! reallocate scratch memory if needed
+    call self%alloc(nx, nd, gp)
 
-    ! allocate x
-    if( .not. allocated(self%x) ) allocate(self%x(0))
-    if( size(self%x) < nx+2*gp ) then
-       deallocate(self%x)
-       allocate(self%x(nx+2*gp))
-    end if
-
-    ! allocate f
-    if( .not. allocated(self%f) ) allocate(self%f(0))
-    if( size(self%f) < nx+2*gp ) then
-       deallocate(self%f)
-       allocate(self%f(nx+2*gp))
-    end if
-
-    ! allocate f_left
-    if( .not. allocated(self%f_left) ) allocate(self%f_left(0))
-    if( size(self%f_left) < gp ) then
-       deallocate(self%f_left)
-       allocate(self%f_left(gp))
-    end if
-
-    ! allocate f_right
-    if( .not. allocated(self%f_right) ) allocate(self%f_right(0))
-    if( size(self%f_right) < gp ) then
-       deallocate(self%f_right)
-       allocate(self%f_right(gp))
-    end if
-
+    ! fill the temporary data using boundary conditions
     call fill_in_temporary_data(self, icw, fname, xname, m, b_left,&
          b_right, error = err)
 
@@ -136,11 +142,10 @@ contains
     type(ghost1d), target :: self
     type(icicles_wrap) :: icw
     character(len=*) :: fname, xname
-    class(boundary) :: b_left, b_right
+    type(iced_boundary) :: b_left, b_right
     class(mesh) :: m
     integer, optional, intent(out) :: error
 
-    type(icicles), pointer :: ic_l, ic_r
     class(boundary_box), pointer :: bbox
     real, pointer :: x(:), f(:), v_temp(:),&
          f_(:,:), f_left_(:,:), f_right_(:,:), x_(:,:)
@@ -153,20 +158,6 @@ contains
 
     gp = m%get_ghost_points(1)
     nx = icw%get_nx(1)
-    ic_l => self%ic_l
-    ic_r => self%ic_r
-
-    ! cook up the fake icicles
-    call fake_icicles(icw, ic_l, b_left,  fname, xname, icw_dir_left,  err1)
-    call fake_icicles(icw, ic_r, b_right, fname, xname, icw_dir_right, err2)
-
-    if(err1 /= FPDE_STATUS_OK .or. err2 /= FPDE_STATUS_OK) then
-       call self%log(FPDE_LOG_ERROR,&
-            "Creation of iciles was unsuccessful.")
-       if(present(error)) error = FPDE_STATUS_ERROR
-       return
-    end if
-
 
     ! get the values of f and x
     call icw%get( name = fname, vec = f, error = err1)
@@ -201,13 +192,11 @@ contains
 
     ! initialize f ghost points using parameters from fake icicles
     call b_left%generate_values(&
-         ic = ic_l,&
          fin = f_,&
          fout = f_left_(gp:1:-1,:),&
          xin = x_,&
          error = err1)
     call b_right%generate_values(&
-         ic = ic_r,&
          fin = f_(nx:1:-1,:),&
          fout = f_right_,&
          xin = x_(nx:1:-1,:),&
@@ -225,44 +214,5 @@ contains
 
   end subroutine fill_in_temporary_data
 
-
-  subroutine fake_icicles(icw, fake_ic, b, fname, xname, dir, error)
-    class(icicles_wrap), intent(in) :: icw
-    type(icicles), intent(out) :: fake_ic
-    class(boundary), intent(in) :: b
-    character(len=*), intent(in) :: fname, xname, dir
-    integer, intent(out), optional :: error
-
-    integer :: err1, err2, i
-    character(len=:), allocatable :: icw_par(:), par(:)
-    real, pointer :: v_temp(:)
-
-    if(present(error)) error = FPDE_STATUS_OK
-
-    par = b%get_param_names()
-    icw_par = b%get_icw_param_names(fname, xname, dir)
-
-    call fake_ic%init(error = err1)
-    if( err1 /= FPDE_STATUS_OK ) then
-       if(present(error)) error = FPDE_STATUS_ERROR
-       return
-    end if
-
-    fake_ic%name = "fake_ic"
-    call fake_ic%clear()
-
-    do i = 1, size(par)
-       call icw%get&
-            ( name = icw_par(i), vec = v_temp, error = err1 )
-       ! we know that for dimension = 1 shape = [1], so length = 1
-       call fake_ic%add&
-            ( name = par(i), length = 1, ptr = v_temp )
-       if( err1 /= FPDE_STATUS_OK ) then
-          if(present(error)) error = FPDE_STATUS_ERROR
-          return
-       end if
-    end do
-
-  end subroutine fake_icicles
 
 end module class_ghost1d

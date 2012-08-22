@@ -14,7 +14,6 @@ module class_boundary
      procedure(gen_val), deferred :: generate_values
      procedure, non_overridable :: get_param_names
      procedure, non_overridable :: set_param_names
-     procedure, non_overridable :: get_icw_param_names
   end type boundary
 
   interface
@@ -51,38 +50,6 @@ contains
 
     self%param_names = names
   end subroutine set_param_names
-
-
-  function get_icw_param_names(self, fname, var, dir) result(r)
-    class(boundary) :: self
-    character(len=*), intent(in) :: fname, var, dir
-
-    character(len=:), allocatable :: r(:)
-
-    character(len=:), allocatable :: params(:)
-    integer :: i, l
-
-    params = self%get_param_names()
-
-    !   params + fname + var
-    l =  len_trim(icw_boundary_name)&
-         + len_trim(fname)&
-         + len_trim(var)&
-         + len_trim(dir)&
-         + maxval(len_trim(params))&
-         + 5                    !commas + brackets
-
-    allocate(character(len=l) :: r(size(params)))
-
-    do i = 1, size(r)
-       r(i) = icw_boundary_name//"("//&
-            trim(fname)//","//&
-            trim(var)//","//&
-            trim(dir)//","//&
-            trim(params(i))//")"
-    end do
-
-  end function get_icw_param_names
 
 
 end module class_boundary

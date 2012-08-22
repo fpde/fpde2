@@ -1,30 +1,50 @@
 module class_boundary_box
 
   use class_platonic
+  use class_icicles
   use class_boundary
+  use class_iced_boundary
   use constants_module
   use logger_module
 
   private
 
-  type :: entry
-     class(boundary), pointer :: left => null()
-     class(boundary), pointer :: right => null()
-  end type entry
-
   type, public, extends(platonic) :: boundary_box
      private
-     type(entry), allocatable :: entries(:)
+     type(iced_boundary), allocatable :: entries(:,:)
      class(boundary), pointer :: default => null()
      integer, allocatable :: nx(:)
+     logical :: after_init = .false.
+     logical :: after_generate = .false.
    contains
+     !> to be called before init()
+     procedure :: set_nx
+     !> init()
      procedure :: init
+     !> after init() only
+     procedure :: add_default
      procedure :: add
      procedure :: get
-     procedure :: get_icw_param_names
+     procedure :: generate_ic_data
   end type boundary_box
 
+
 contains
+
+  subroutine set_nx(self, nx)
+    class(boundary_box) :: self
+    integer :: nx(:)
+
+    if( .not. self%after_init) then
+       self%nx = nx
+    else
+       call self%log(FPDE_LOG_WARNING,&
+            "Trying to set nx after calling init(), set_nx() will be&
+            & ignored.")
+       return
+    end if
+  end subroutine set_nx
+
 
   subroutine init(p, error)
     class(boundary_box), target :: p
@@ -32,129 +52,190 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    p%name = "boundary_box"
-
-    allocate(p%entries(0))
+    if( .not. p%after_init) then
+       if( .not. allocated(p%nx) ) then
+          call p%log(FPDE_LOG_ERROR,&
+            "Trying to call init() before set_nx().")
+          if(present(error)) error = FPDE_STATUS_ERROR
+          return
+       end if
+       allocate(p%entries(size(p%nx),2))
+       p%name = "boundary_box"
+    else
+       call p%log(FPDE_LOG_WARNING,&
+            "Trying to call init() for a second time, this call to &
+            &init() will be ignored.")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
 
   end subroutine init
 
 
-  subroutine add(self, var, left, right, default, error)
+  subroutine add_default(self, b, error)
     class(boundary_box) :: self
-    integer, intent(in), optional :: var
-    class(boundary), target, intent(in), optional :: left, right, default
-    integer, intent(out), optional :: error
-
-    ! @todo entries is used as a temporary variables untill
-    ! ifort bug with reallocating a=[a,1] is fixed or gfortran is used
-    type(entry), allocatable :: entries(:)
-    type(entry) :: e
-    integer :: ne
-    ! variable used to hold a new array
-
-    ne = size(self%entries)
-
-    if( present(error) ) error = FPDE_STATUS_OK
-
-    if( present(var) ) then
-       ! realloc if needed
-       if( var > ne ) then
-          entries = [self%entries, spread(e,1,var-ne)]
-          call move_alloc(entries, self%entries)
-       end if
-
-       ! set the appropriate pointers
-       if( present(left)  ) self%entries(var)%left => left
-       if( present(right) ) self%entries(var)%right => right
-
-    else
-       if( present(default) ) then
-          self%default => default
-       end if
-    end if
-
-  end subroutine add
-
-
-  subroutine get(self, var, left, right, error)
-    class(boundary_box) :: self
-    integer, intent(in) :: var
-    class(boundary), pointer, intent(out), optional :: left, right
+    class(boundary), target, intent(in) :: b
     integer, intent(out), optional :: error
 
     integer :: i
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    associate( e => self%entries, d => self%default )
+    if( .not. self%after_init ) then
+       !! @todo error
+       return
+    else
+       do i = 1, size(self%entries,1)
+          call self%entries(i,1)%init()
+          call self%entries(i,1)%set_boundary(b)
+          call self%entries(i,2)%init()
+          call self%entries(i,2)%set_boundary(b)
+       end do
+    end if
 
-      if( var > size(e) ) then
-         ! default boundary conditions
-         if(present(left )) left  => d
-         if(present(right)) right => d
-      else
-         if(present(left)) then
-            if(associated(e(var)%left)) then
-               left => e(var)%left
-            else
-               left => d
-            end if
-         end if
+  end subroutine add_default
 
-         if(present(right)) then
-            if(associated(e(var)%right)) then
-               right => e(var)%right
-            else
-               right => d
-            end if
-         end if
-      end if
-    end associate
 
-    ! at this point left and right should be associated
-    if( present(left) .and. .not. associated(left) .or.&
-         present(right) .and. .not. associated(right)) then
-       ! otherwise, print error
-       call self%log(FPDE_LOG_ERROR,&
-            "Boundary condition not found.")
+  subroutine add(self, var, lr, b, error)
+    class(boundary_box) :: self
+    integer, intent(in) :: var, lr
+    class(boundary), target, intent(in) :: b
+    integer, intent(out), optional :: error
 
-       if(present(error)) error = FPDE_STATUS_ERROR
+    if(present(error)) error = FPDE_STATUS_OK
+
+    if( self%after_init) then
+
+       if( var > size(self%entries,1) ) then
+          !! @todo error
+          return
+       end if
+
+       if( lr > 2 .or. lr < 1 ) then
+          !! @todo error
+          return
+       end if
+
+       call self%entries(var,lr)%set_boundary(b)
+
+    else
+       !! @todo error
        return
     end if
+
+  end subroutine add
+
+
+  subroutine get(self, var, lr, ib, error)
+    class(boundary_box), target :: self
+    integer, intent(in) :: var, lr
+    type(iced_boundary), pointer, intent(out) :: ib
+    integer, intent(out), optional :: error
+
+    integer :: i
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    !! @todo check for errors
+    if( var > size(self%entries,1) .or. var < 1 ) then
+       return
+    end if
+
+    if( lr > 2 .or. lr < 1 ) then
+       return
+    end if
+
+    ib => self%entries(var,lr)
 
   end subroutine get
 
 
-  function get_icw_param_names(self, fname, spatial) result(r)
-    class(boundary_box) :: self
-    character(len=*) :: fname, spatial(:)
+  subroutine generate_ic_data(self, fname, spatial, names, refs, error)
+    class(boundary_box), target :: self
+    character(len=*), intent(in) :: fname, spatial(:)
+    character(len=:), allocatable, intent(out) :: names(:)
+    type(icicles_referencer), allocatable, intent(out) :: refs(:)
+    integer, intent(out), optional :: error
 
-    character(len=:), allocatable :: r(:)
+    integer :: i, j, k, maxlen
+    type(iced_boundary), pointer :: ib
+    integer, pointer :: nx(:)
+    character(len=:), allocatable :: ns(:)
+    type(icicles_referencer), allocatable :: rs(:), rs_temp(:)
 
-    character(len=:), allocatable :: name_left(:), name_right(:)
-    integer :: i, maxlen
-    class(boundary), pointer :: left, right
 
-    allocate( character(len=0) :: r(0) )
+    if(present(error)) error = FPDE_STATUS_OK
 
-    do i = 1, size(spatial)
-       call self%get(i,left = left, right = right)
+    if( .not. self%after_init) then
+       !! @todo error
+       return
+    end if
 
-       name_left  = left %get_icw_param_names(fname, spatial(i),icw_dir_left )
-       name_right = right%get_icw_param_names(fname, spatial(i),icw_dir_right)
+    ! this function should be called only once
+    if( self%after_generate ) then
+       !! @todo error
+       return
+    end if
 
-       maxlen=max(len(r),len(name_left),len(name_right))
-       r = [character(len=maxlen) :: r,name_left,name_right]
+
+    if( allocated(names) ) deallocate(names)
+    if( allocated(refs) )  deallocate(refs)
+
+    allocate(character(len=0)::names(0))
+    allocate(refs(0))
+
+    nx => self%nx
+
+    do i = 1, size(self%entries,1)
+       do j = 1, 2
+          ib => self%entries(i,j)
+          call ib%generate_references(&
+               length = product([nx(:i-1),nx(i+1:)]),&
+               refs = rs)
+
+          ns = ib%generate_names(&
+               fname = fname,&
+               var = spatial(i),&
+               dir = merge(icw_dir_left,icw_dir_right,j==1))
+
+          do k = 1, size(ns)
+             ns(k) = ns(k)
+          end do
+
+          maxlen=max(len(ns),len(names))
+          names = [character(len=maxlen) :: names,ns]
+          rs_temp = refs
+          refs = [rs_temp,rs]
+       end do
     end do
 
-  end function get_icw_param_names
+    self%after_generate = .true.
+
+  end subroutine generate_ic_data
 
 
-  subroutine update_icicles(self, nx)
-    class(boundary_box) :: self
-    integer, intent(in) :: nx(:)
+  ! function get_icw_param_names(self, fname, spatial) result(r)
+  !   class(boundary_box) :: self
+  !   character(len=*) :: fname, spatial(:)
 
-    ! extend entries
-  end subroutine update_icicles
+  !   character(len=:), allocatable :: r(:)
+
+  !   character(len=:), allocatable :: name_left(:), name_right(:)
+  !   integer :: i, maxlen
+  !   class(boundary), pointer :: left, right
+
+  !   ! allocate( character(len=0) :: r(0) )
+
+  !   ! do i = 1, size(spatial)
+  !   !    call self%get(i,left = left, right = right)
+
+  !   !    name_left  = left %get_icw_param_names(fname, spatial(i),icw_dir_left )
+  !   !    name_right = right%get_icw_param_names(fname, spatial(i),icw_dir_right)
+
+  !   !    maxlen=max(len(r),len(name_left),len(name_right))
+  !   !    r = [character(len=maxlen) :: r,name_left,name_right]
+  !   ! end do
+
+  ! end function get_icw_param_names
 
 end module class_boundary_box

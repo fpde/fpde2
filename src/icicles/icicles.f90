@@ -21,22 +21,30 @@ module class_icicles
 
   integer, parameter :: buff = 1
 
+  type, public, extends(platonic) :: icicles_referencer
+     private
+     type(named_vector), pointer :: nv => null()
+   contains
+     procedure :: set_to
+     procedure :: init => init_ir
+  end type icicles_referencer
+
+
   type :: named_vector
      real, pointer :: val(:) => null()
      ! character(len=NAME_LEN) :: name = ""
      character(len=:), allocatable :: name
      integer :: length = 0
+     type(icicles_referencer), allocatable :: refs(:)
   end type named_vector
 
 
   type, public, extends(platonic) :: icicles
      private
      type(named_vector), allocatable :: vectors(:)
-     integer :: nv = 0
    contains
-     procedure :: init
+     procedure :: init => init_ic
      procedure :: add
-     procedure :: clear
      procedure :: get
      procedure :: set_pointers
      procedure :: total_length
@@ -44,91 +52,120 @@ module class_icicles
 
 contains
 
+  subroutine init_ir(p, error)
+    class(icicles_referencer), target :: p
+    integer, optional, intent(out) :: error
+    if(present(error)) error = FPDE_STATUS_OK
+    p%name = "Icicles referencer"
+  end subroutine init_ir
 
-  subroutine init(p, error)
+
+  subroutine set_to(self, dest, error)
+    class(icicles_referencer) :: self
+    real, target :: dest(:)
+    integer, optional, intent(out) :: error
+
+    integer :: length
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    if( .not. associated(self%nv) ) then
+       call self%log(FPDE_LOG_WARNING,&
+            "Referencer is empty")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    length = self%nv%length
+
+    if(size(dest) < length) then
+       call self%log(FPDE_LOG_ERROR,&
+            "Unable to change reference, target too short")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    self%nv%val(1:length) => dest(1:length)
+  end subroutine set_to
+
+
+  subroutine init_ic(p, error)
     class(icicles), target :: p
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
     p%name = "Icicles"
     allocate(p%vectors(0))
-  end subroutine init
+  end subroutine init_ic
 
 
-  subroutine add(this, name, length, ptr)
-    class(icicles) :: this
+  subroutine add(self, name, length, this_ref, refs)
+    class(icicles), target :: self
     character(len=*), intent(in) :: name
     integer, intent(in) :: length
-    real, target, optional, intent(in) :: ptr(:)
+    type(icicles_referencer), optional, intent(out) :: this_ref
+    type(icicles_referencer), optional, intent(in) :: refs(:)
 
-    integer :: nv
+    integer :: n
     type(named_vector) :: v
     type(named_vector), allocatable :: temp_vectors(:)
 
     v % name = trim(name)
     v % length = length
-    if( present(ptr) ) then
-       if( size(ptr) >= length ) then
-          v % val => ptr
-       end if
-    end if
     ! ! @todo possible ifort bug with realloc_lhs
-    temp_vectors = this%vectors
-    this%vectors = [ temp_vectors, v ]
+    temp_vectors = self%vectors
+    self%vectors = [ temp_vectors, v ]
 
-    ! alternative implementation
-    ! nv = this%nv
-    ! this%nv = nv + 1
-    ! if( nv + 1 > size(this%vectors) ) then
-    !    ! realloc
-    !    temp_vectors = this%vectors
-    !    deallocate(this%vectors)
-    !    allocate(this%vectors(nv+buff))
-    !    this%vectors(1:nv) = temp_vectors
-    ! end if
-    ! this%vectors(nv+1) = v
+    n = size(self%vectors)
+
+    ! generate reference
+    if( present(this_ref) ) then
+       this_ref%nv => self%vectors(n)
+    end if
+
+    ! add references
+    if( present(refs) ) then
+       self%vectors(n)%refs = refs
+    end if
+
 
   end subroutine add
 
 
-  subroutine clear(this)
-    class(icicles), target :: this
-    deallocate(this%vectors)
-    allocate(this%vectors(0))
-    ! this%nv = 0
-  end subroutine clear
-
-
-  subroutine get(this, name, vec, scal, error)
-    class(icicles), target :: this
+  subroutine get(self, name, vec, scal, error)
+    class(icicles), target :: self
     character(len=*), intent(in) :: name
     real, pointer, optional :: scal, vec(:)
     ! type(named_vector), pointer, optional :: named
     integer, intent(out), optional :: error
 
-    type(named_vector), pointer :: v
-    integer :: nv
+    type(named_vector), pointer :: v => null()
+    integer :: nv, i
 
     if(present(error)) error = FPDE_STATUS_OK
 
     ! nullify pointers, just in case
-    ! if( present( named ) ) nullify(named)
-    if( present( vec   ) ) nullify(vec)
-    if( present( scal  ) ) nullify(scal)
+    ! if( present( vec   ) ) nullify(vec)
+    ! if( present( scal  ) ) nullify(scal)
 
-    nv = size(this%vectors)
-    ! alternative implementation
-    ! nv = this%nv
-    v => first_match(this%vectors, name)
+    nv = size(self%vectors)
+    do i = 1, nv
+       if( self%vectors(i)%name == name) then
+          v => self%vectors(i)
+          exit
+       end if
+    end do
 
-    if( .not. associated(v) ) then
+    if( associated(v) ) then
+       if( associated(v%val) ) then
+          if( present( vec   ) ) vec   => v%val
+          if( present( scal  ) ) scal  => v%val(1)
+       end if
+    else
        if(present(error)) error = FPDE_STATUS_ERROR
-       call this%log(FPDE_STATUS_ERROR, "No entry named ["//trim(name)//"]")
+       call self%log(FPDE_STATUS_ERROR, "No entry named ["&
+            //trim(name)//"]")
        return
     end if
-
-    ! if( present( named ) ) named => v
-    if( present( vec   ) ) vec   => v%val
-    if( present( scal  ) .and. size(v%val) > 0 ) scal  => v%val(1)
 
   end subroutine get
 
@@ -139,12 +176,11 @@ contains
     character(len=*), intent(in), optional :: names(:)
     integer, optional, intent(out) :: error
 
-    integer :: i, j, tl, nv
+    integer :: i, j, k, tl, nv
     class(named_vector), pointer :: n_v
     j = 1
 
     if( present(error) ) error = FPDE_STATUS_OK
-
 
     if(present(names)) then
        tl = self%total_length(names)
@@ -161,8 +197,6 @@ contains
     end if
 
     nv = size(self%vectors)
-    ! alternative implementation
-    ! nv = self%nv
 
     do i = 1, nv
 
@@ -175,6 +209,11 @@ contains
        end if
 
        n_v%val => vec(j:j+n_v%length-1)
+       if(allocated(n_v%refs)) then
+          do k = 1, size(n_v%refs)
+             call n_v%refs(k)%set_to(vec(j:j+n_v%length-1))
+          end do
+       end if
        j = j+n_v%length
 
     end do
@@ -192,8 +231,6 @@ contains
     class(named_vector), pointer :: n_v
 
     nv = size(self%vectors)
-    ! alternative implementation
-    ! nv = self%nv
 
     if( .not. present(names) ) then
        total_length = sum(self%vectors(1:nv)%length)
@@ -208,21 +245,6 @@ contains
     end if
 
   end function total_length
-
-
-  function first_match(nvs, name)
-    type(named_vector), intent(in), target :: nvs(:)
-    type(named_vector), pointer :: first_match
-    character(len=*) :: name
-
-    integer :: i
-
-    nullify(first_match)
-    do i = 1, size(nvs)
-       if( nvs(i)%name == name ) first_match => nvs(i)
-    end do
-
-  end function first_match
 
 
 end module class_icicles

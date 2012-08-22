@@ -36,7 +36,7 @@ module class_icicles_wrap
      character(len=:), allocatable :: options(:)
      !> boundary_box contains all information about boundray
      !! conditions
-     type(boundary_box) :: box
+     type(boundary_box), pointer :: box => null()
      !> e.g. shape = [nx,ny,nz] etc. for scalar it should be [1]
      integer, allocatable :: shape(:)
   end type param
@@ -51,7 +51,11 @@ module class_icicles_wrap
      type(icicles), pointer :: ic => null()
      type(param), allocatable :: params(:) !array of parameters
      integer, allocatable:: nx(:)
+     !! @todo possibly add cached names of spatial variables?
+     ! character(len=:), allocatable :: spatial(:)
      logical :: after_init = .false.
+     character(len=:), allocatable :: temporal
+     character(len=:), allocatable :: spatial(:)
    contains
      ! procedure :: from_lua
      procedure :: init
@@ -63,8 +67,11 @@ module class_icicles_wrap
      generic :: get_nx => get_all_nx, get_some_nx
      procedure :: add
      procedure :: add_spatial
+     procedure :: get_spatial
+     procedure :: get_temporal
      procedure :: get_names
      procedure :: get
+     procedure, private :: add_boundary_data
      procedure, nopass :: derivative_name
   end type icicles_wrap
 
@@ -108,6 +115,7 @@ contains
     end if
 
   end subroutine set_nx
+
 
   subroutine set_pointers(self, vec, names, error)
     class(icicles_wrap), target :: self
@@ -192,6 +200,45 @@ contains
   end function get_names
 
 
+  function get_temporal(self, error) result(r)
+    class(icicles_wrap), intent(in) :: self
+    integer, optional, intent(out) :: error
+
+    character(len=NAME_LEN) :: r
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    if(allocated(self%temporal)) then
+       r = self%temporal
+    else
+       if(present(error)) error = FPDE_STATUS_ERROR
+       r = ""
+    end if
+
+  end function get_temporal
+
+
+  function get_spatial(self, var, error) result(r)
+    class(icicles_wrap), intent(in) :: self
+    integer :: var
+    integer, optional, intent(out) :: error
+
+    character(len=NAME_LEN) :: r
+
+
+    if(present(error)) error = FPDE_STATUS_ERROR
+    r = ""
+
+    if(allocated(self%spatial)) then
+       if(.not. var > size(self%spatial)) then
+          if(present(error)) error = FPDE_STATUS_OK
+          r = self%spatial(var)
+       end if
+    end if
+
+  end function get_spatial
+
+
   !> Implemented for convenient use, it calls add() for each element
   !! of spatial with options = icw_spatial
   !!
@@ -230,6 +277,7 @@ contains
 
     !! @bug, err can be changed several times in a do loop above
     if(present(error)) error = err
+    self%spatial = spatial
 
   end subroutine add_spatial
 
@@ -248,7 +296,7 @@ contains
   !! @param error
   !!
   recursive subroutine add(self, name, options, shape,&
-       box, derivatives, error)
+       box, derivatives, refs, error)
     use class_boundary
     class(icicles_wrap) :: self
     character(len=*), intent(in) :: name
@@ -257,6 +305,7 @@ contains
     integer, intent(in), optional :: shape(:)
     class(boundary_box), intent(in), target, optional :: box
     integer, intent(out), optional :: error
+    type(icicles_referencer), optional, intent(in) :: refs(:)
 
     ! local variables
     type(param) :: p
@@ -283,6 +332,9 @@ contains
 
     if( present(options) ) then
        p%options = options
+       if(any(options==icw_temporal)) then
+          self%temporal = name
+       end if
     else
        ! by default allocate zero-sized options
        allocate(character(len=0)::p%options(0))
@@ -305,26 +357,9 @@ contains
           if(present(error)) error = FPDE_STATUS_ERROR
           return
        else
-          ! add boundary_box
-          p%box = box
-          do i = 1, size(spatial)
-             call box%get(var = i, left = lb, right = rb)
-             lnames = lb%get_icw_param_names(name, spatial(i),icw_dir_left)
-             rnames = rb%get_icw_param_names(name, spatial(i),icw_dir_right)
-             maxlen = max(len(lnames), len(rnames))
-             parameters = [ character(len=maxlen) :: lnames, rnames ]
-             do j = 1, size(parameters)
-                call self%add(&
-                     name = parameters(j),&
-                     options = [p%options,icw_boundary],&
-                     shape = [p%shape(1:i-1),p%shape(i+1:)],&
-                     error = err)
-                if( err/= FPDE_STATUS_OK ) then
-                   if(present(error)) error = err
-                   return
-                end if
-             end do
-          end do
+          ! make a deep copy of boundary box
+          allocate(p%box, source = box)
+          call self%add_boundary_data(p)
        end if
     end if
 
@@ -356,9 +391,56 @@ contains
     call move_alloc(pp, self%params)
 
     ! add entry to icicles
-    call self%ic%add(name, product(p%shape))
+    if(present(refs)) then
+       call self%ic%add(name, product(p%shape), refs = refs)
+    else
+       call self%ic%add(name, product(p%shape))
+    end if
 
   end subroutine add
+
+  subroutine add_boundary_data(self, p, error)
+    class(icicles_wrap), target :: self
+    type(param), intent(in) :: p
+    integer, optional, intent(out) :: error
+
+    integer :: i, err, n
+    integer, pointer :: nx(:)
+    character(len=:), allocatable :: names(:), spatial(:)
+    type(icicles_referencer), allocatable :: refs(:)
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    spatial = self%get_names(icw_spatial)
+
+    call p%box%generate_ic_data(&
+         fname = p%name,&
+         spatial = spatial,&
+         names = names,&
+         refs = refs,&
+         error = err)
+
+    nx => self%nx
+
+    do i = 1, size(names)
+       call self%add(&
+            name = names(i),&
+            options = [p%options,icw_boundary],&
+            shape = [nx(:i-1),nx(i+1:)],&
+            error = err, &
+            refs = refs)
+       if( err /= FPDE_STATUS_OK ) then
+          if(present(error)) error = err
+          call self%log(FPDE_STATUS_ERROR,&
+               "Unable to add boundary condition for function ["&
+               //trim(p%name)//"].")
+          return
+       end if
+
+    end do
+
+  end subroutine add_boundary_data
+
 
   !> Helper function to used find matching options
   !!
@@ -375,10 +457,10 @@ contains
 
 
   subroutine get(self, name, vec, scal, options, box, shape, error)
-    class(icicles_wrap), intent(in) :: self
+    class(icicles_wrap), intent(in), target :: self
     character(len=*), intent(in) :: name
     character(len=:), intent(out), optional, allocatable :: options(:)
-    class(boundary_box), intent(out), pointer, optional :: box
+    type(boundary_box), intent(out), pointer, optional :: box
     integer, intent(out), allocatable, optional :: shape(:)
     real, intent(out), optional, pointer :: vec(:), scal
     integer, intent(out), optional :: error
@@ -387,12 +469,18 @@ contains
     real, pointer :: v(:), s
     type(param), pointer :: p
     ! type(param) :: p
-    integer :: err
+    integer :: err, i
 
     if(present(error)) error = FPDE_STATUS_OK
 
     call self%ic%get(name, v, s, err)
-    p => first_match( self%params, name )
+
+    do i = 1, size(self%params)
+       if(self%params(i)%name == name) then
+          p => self%params(i)
+          exit
+       end if
+    end do
 
     if( .not. ( err == FPDE_STATUS_OK .and. &
        associated(p)) ) then
@@ -409,22 +497,6 @@ contains
     if( present(shape    ))  shape   =  p%shape
 
   end subroutine get
-
-
-  function first_match(nvs, name)
-    type(param), intent(in), target :: nvs(:)
-    type(param), pointer :: first_match
-    character(len=*) :: name
-
-    integer :: i
-
-    nullify(first_match)
-    do i = 1, size(nvs)
-       if( nvs(i)%name == name ) first_match => nvs(i)
-    end do
-
-  end function first_match
-
 
   function derivative_name(fname, derivative) result(r)
     character(len=*) :: fname, derivative(:)
