@@ -11,7 +11,6 @@
 !! queries can be made (i.e. ask for functions with given option).
 !!
 !! @todo regexp queries
-!! @todo array of options queries
 !!
 module class_icicles_wrap
 
@@ -51,8 +50,6 @@ module class_icicles_wrap
      type(icicles), pointer :: ic => null()
      type(param), allocatable :: params(:) !array of parameters
      integer, allocatable:: nx(:)
-     !! @todo possibly add cached names of spatial variables?
-     ! character(len=:), allocatable :: spatial(:)
      logical :: after_init = .false.
      character(len=:), allocatable :: temporal
      character(len=:), allocatable :: spatial(:)
@@ -267,27 +264,35 @@ contains
 
     integer :: i, err
 
+    if(present(error)) error = FPDE_STATUS_OK
+
     if( .not. self%after_init) then
-       err = FPDE_STATUS_ERROR
        call self%log(FPDE_STATUS_ERROR,&
             "Calling add_spatial() before init().")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
-    else if( size(spatial) /= size(self%get_nx()) ) then
-       err = FPDE_STATUS_ERROR
-       call self%log(FPDE_STATUS_ERROR,&
-            "Calling add_spatial() with spatial incompatible with nx(:).")
-       return
-    else
-       do i = 1, size(spatial)
-          call self%add(&
-               name = spatial(i),&
-               options = [icw_spatial],&
-               error = err)
-       end do
     end if
 
-    !! @bug, err can be changed several times in a do loop above
-    if(present(error)) error = err
+    if( size(spatial) /= size(self%get_nx()) ) then
+       call self%log(FPDE_STATUS_ERROR,&
+            "Calling add_spatial() with spatial incompatible with nx(:).")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    do i = 1, size(spatial)
+       call self%add(&
+            name = spatial(i),&
+            options = [icw_spatial],&
+            error = err)
+       if(err /= FPDE_STATUS_OK) then
+          call self%log(FPDE_STATUS_ERROR,&
+               "add_spatial() failed to add some of the spatial variables.")
+          if(present(error)) error = FPDE_STATUS_ERROR
+          return
+       end if
+    end do
+
     self%spatial = spatial
 
   end subroutine add_spatial
@@ -357,23 +362,12 @@ contains
     end if
 
     if( present(box) ) then
-       ! @todo enclose in add_boundary_box(...)
-       spatial = self%get_names(icw_spatial)
-       if( size(spatial) < size(self%get_nx()) ) then
-          call self%log(FPDE_LOG_ERROR,&
-               "Unable to add function with boundary conditions, no sp&
-               &atial variables were specified.")
-          if(present(error)) error = FPDE_STATUS_ERROR
-          return
-       else
-          ! make a deep copy of boundary box
-          allocate(p%box, source = box)
-          call self%add_boundary_data(p)
-       end if
+       ! make a deep copy of boundary box
+       allocate(p%box, source = box)
+       call self%add_boundary_data(p)
     end if
 
     if(present(derivatives))then
-       ! @todo enclose in add_derivatives(...)
        do i = 1, size(derivatives,2)
           call self%add(&
                name    = self%derivative_name(name, derivatives(:,i)), &

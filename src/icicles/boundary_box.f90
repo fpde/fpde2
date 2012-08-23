@@ -83,7 +83,9 @@ contains
     if(present(error)) error = FPDE_STATUS_OK
 
     if( .not. self%after_init ) then
-       !! @todo error
+       call self%log(FPDE_LOG_ERROR,&
+            "add_default() called before init")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     else
        do i = 1, size(self%entries,1)
@@ -105,24 +107,28 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    if( self%after_init) then
-
-       if( var > size(self%entries,1) ) then
-          !! @todo error
-          return
-       end if
-
-       if( lr > 2 .or. lr < 1 ) then
-          !! @todo error
-          return
-       end if
-
-       call self%entries(var,lr)%set_boundary(b)
-
-    else
-       !! @todo error
+    if( .not. self%after_init) then
+       call self%log(FPDE_LOG_ERROR,&
+            "add() called before init().")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
+
+    if( var > size(self%entries,1) ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "add() called with var > dim.")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    if( lr > 2 .or. lr < 1 ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "add() called with lr different than 1 or 2.")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    call self%entries(var,lr)%set_boundary(b)
 
   end subroutine add
 
@@ -137,12 +143,24 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    !! @todo check for errors
-    if( var > size(self%entries,1) .or. var < 1 ) then
+    if( .not. self%after_init) then
+       call self%log(FPDE_LOG_ERROR,&
+            "get() called before init().")
+       if(present(error)) error = FPDE_STATUS_ERROR
+       return
+    end if
+
+    if( var > size(self%entries,1) ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "get() called with var > dim.")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
 
     if( lr > 2 .or. lr < 1 ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "get() called with lr different than 1 or 2.")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
 
@@ -192,7 +210,6 @@ contains
 
     nx => self%nx
 
-    ! do i = 1, size(self%entries,1)
     do j = 1, 2
        ib => self%entries(var,j)
        call ib%generate_references(&
@@ -213,35 +230,9 @@ contains
        rs_temp = refs
        refs = [rs_temp,rs]
     end do
-    ! end do
 
     self%after_generate = .true.
 
   end subroutine generate_ic_data
-
-
-  ! function get_icw_param_names(self, fname, spatial) result(r)
-  !   class(boundary_box) :: self
-  !   character(len=*) :: fname, spatial(:)
-
-  !   character(len=:), allocatable :: r(:)
-
-  !   character(len=:), allocatable :: name_left(:), name_right(:)
-  !   integer :: i, maxlen
-  !   class(boundary), pointer :: left, right
-
-  !   ! allocate( character(len=0) :: r(0) )
-
-  !   ! do i = 1, size(spatial)
-  !   !    call self%get(i,left = left, right = right)
-
-  !   !    name_left  = left %get_icw_param_names(fname, spatial(i),icw_dir_left )
-  !   !    name_right = right%get_icw_param_names(fname, spatial(i),icw_dir_right)
-
-  !   !    maxlen=max(len(r),len(name_left),len(name_right))
-  !   !    r = [character(len=maxlen) :: r,name_left,name_right]
-  !   ! end do
-
-  ! end function get_icw_param_names
 
 end module class_boundary_box

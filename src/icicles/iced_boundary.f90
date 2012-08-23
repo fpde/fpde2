@@ -7,7 +7,6 @@ module class_iced_boundary
 
   private
 
-  !! @todo move it out to the separate file
   type, public, extends(platonic) :: iced_boundary
      private
      class(boundary), pointer :: b => null()
@@ -80,7 +79,8 @@ contains
        allocate(self%ic)
        call self%ic%init()
     else
-       ! @todo error
+       call self%log(FPDE_LOG_ERROR,&
+            "generate_references() can only be called once.")
        return
     end if
 
@@ -117,7 +117,6 @@ contains
 
     params = self%b%get_param_names()
 
-    !   params + fname + var
     l =  len_trim(icw_boundary_name)&
          + len_trim(fname)&
          + len_trim(var)&

@@ -65,7 +65,6 @@ contains
     character(len=*), intent(in), target :: alpha2(:,:), fname
     integer, optional, intent(out) :: error
 
-    character(len=:), allocatable, save :: dfname
     character(len=NAME_LEN) :: xname
     integer, allocatable, save :: ndx(:)
     integer :: nx, nd, i, gp, err
@@ -97,7 +96,6 @@ contains
 
 
     ! get boundary conditions
-    ! call bbox%get( 1, left = b_left, right = b_right, error = err )
     call bbox%get( 1, 1, b_left)
     call bbox%get( 1, 2, b_right)
     if( err /= FPDE_STATUS_OK ) then
@@ -146,13 +144,9 @@ contains
     class(mesh) :: m
     integer, optional, intent(out) :: error
 
-    class(boundary_box), pointer :: bbox
-    real, pointer :: x(:), f(:), v_temp(:),&
+    real, pointer :: x(:), f(:),&
          f_(:,:), f_left_(:,:), f_right_(:,:), x_(:,:)
-    ! real, allocatable, save, target :: f_left(:), f_right(:)
-    character(len=:), allocatable :: par_l(:), par_r(:),&
-         icw_par_l(:), icw_par_r(:)
-    integer :: i, gp, err1, err2, nx
+    integer :: gp, err1, err2, nx
 
     if(present(error)) error = FPDE_STATUS_OK
 
@@ -172,16 +166,9 @@ contains
     end if
 
     ! initialize x ghost points
-    ! x_left  = x(1)  - (x( gp+1 :2     :-1 ) - x(1))
-    ! x_right = x(nx) - (x( nx-1 :nx-gp :-1 ) - x(nx))
     self%x(1:gp) = x(1)  - (x( gp+1 :2     :-1 ) - x(1))
     self%x(gp+1:gp+nx) = x
     self%x(gp+nx+1:2*gp+nx) = x(nx) - (x( nx-1 :nx-gp :-1 ) - x(nx))
-
-    ! self%x(1:)  = [x_left, x, x_right]
-
-    ! self%f_left  = spread(0.,1,gp)
-    ! self%f_right = spread(0.,1,gp)
 
     ! create temporary pointers for boundary_conditions
     f_left_ ( 1:gp, 1:1) => self%f_left (1:gp)
@@ -189,13 +176,13 @@ contains
     f_      ( 1:nx, 1:1) => f(1:nx)
     x_      ( 1:nx, 1:1) => x(1:nx)
 
-
     ! initialize f ghost points using parameters from fake icicles
     call b_left%generate_values(&
          fin = f_,&
          fout = f_left_(gp:1:-1,:),&
          xin = x_,&
          error = err1)
+
     call b_right%generate_values(&
          fin = f_(nx:1:-1,:),&
          fout = f_right_,&
@@ -204,10 +191,9 @@ contains
 
     if(err1 /= FPDE_STATUS_OK .or. err2 /= FPDE_STATUS_OK) then
        call self%log(FPDE_LOG_ERROR,&
-            "Ghost points could not be filled in.")
+            "Ghost points could not be filled.")
     end if
 
-    ! self%f(1:) = [f_left, f, f_right]
     self%f(1:gp)  = self%f_left
     self%f(gp+1:gp+nx) = f
     self%f(gp+nx+1:2*gp+nx) = self%f_right

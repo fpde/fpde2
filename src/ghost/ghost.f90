@@ -50,7 +50,7 @@ contains
     end if
 
     ! check if the mesh is compatible with icicles
-    if( size(icw%get_nx()) /= m%get_dim() ) then
+    if( icw%get_dim() /= m%get_dim() ) then
        if(present(error)) error = FPDE_STATUS_ERROR
        call self%log(FPDE_LOG_ERROR, &
             "Mesh and data have incompatible dimensions.")
