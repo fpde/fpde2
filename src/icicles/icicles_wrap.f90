@@ -322,11 +322,9 @@ contains
     type(param) :: p
     ! temporary variables needed to circumvent the bug
     type(param), allocatable :: pp(:)
-    integer :: i, j, err, maxlen
+    integer :: i, err
     ! boundary variables
-    character(len=:), allocatable :: parameters(:), spatial(:),&
-         lnames(:), rnames(:)
-    class(boundary), pointer :: lb, rb
+    character(len=:), allocatable :: spatial(:)
 
     if(present(error)) error = FPDE_STATUS_OK
 
@@ -415,7 +413,7 @@ contains
     type(param), intent(in) :: p
     integer, optional, intent(out) :: error
 
-    integer :: i, j, err, n
+    integer :: i, j, err
     integer, pointer :: nx(:)
     character(len=:), allocatable :: names(:), spatial(:)
     type(icicles_referencer), allocatable :: refs(:)

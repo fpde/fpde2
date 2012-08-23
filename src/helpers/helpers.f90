@@ -95,7 +95,7 @@ contains
     character(len=*), intent(in) :: chars(:), separator
     character(len=:), allocatable :: r
 
-    integer :: i, i_max, n
+    integer :: i, n
 
     n = size(chars)
     if( n == 0 ) then

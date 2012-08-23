@@ -75,7 +75,6 @@ contains
 
     integer :: i, n
     character(len=:), allocatable :: params(:)
-    type(icicles_referencer) :: r
 
     if( .not. allocated(self%ic) ) then
        allocate(self%ic)

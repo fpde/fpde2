@@ -34,7 +34,7 @@ contains
     real, intent(out) :: fout(:,:)
 
     real, pointer :: av(:), v(:)
-    integer :: n, i, err
+    integer :: i, err
 
     if(present(error)) error = FPDE_STATUS_OK
 
