@@ -93,19 +93,21 @@ contains
 
   pure function join(chars,separator) result(r)
     character(len=*), intent(in) :: chars(:), separator
-    character(len=NAME_LEN) :: r
+    character(len=:), allocatable :: r
 
-    integer :: i, i_max
+    integer :: i, i_max, n
 
-    r = ""
-
-    i_max = findloc_first(chars,"")-1
-
-    do i = 1, i_max-1
-       write(r,'(*(g0))') trim(r), trim(chars(i)), trim(separator)
-    end do
-
-    write(r,'(*(g0))') trim(r), trim(chars(i_max))
+    n = size(chars)
+    if( n == 0 ) then
+       r = ""
+       return
+    else
+       r = trim(chars(1))
+       do i = 2, n
+          if( chars(i) == "" ) return
+          r = trim(r) // trim(separator) // trim(chars(i))
+       end do
+    end if
 
   end function join
 
