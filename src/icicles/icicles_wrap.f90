@@ -62,6 +62,7 @@ module class_icicles_wrap
      procedure :: set_nx
      procedure :: set_pointers
      procedure :: total_length
+     procedure :: get_dim
      procedure, private :: get_all_nx
      procedure, private :: get_some_nx
      generic :: get_nx => get_all_nx, get_some_nx
@@ -167,6 +168,16 @@ contains
     integer, allocatable :: get_all_nx(:)
     get_all_nx = self%nx
   end function get_all_nx
+
+  !>
+  !! @return dimension of the system
+  !!
+  function get_dim(self) result(d)
+    class(icicles_wrap) :: self
+    integer :: d
+    d = size(self%nx)
+  end function get_dim
+
 
   !> Returns a shape of data in a direction given by var
   !!
@@ -404,7 +415,7 @@ contains
     type(param), intent(in) :: p
     integer, optional, intent(out) :: error
 
-    integer :: i, err, n
+    integer :: i, j, err, n
     integer, pointer :: nx(:)
     character(len=:), allocatable :: names(:), spatial(:)
     type(icicles_referencer), allocatable :: refs(:)
@@ -413,31 +424,38 @@ contains
 
     spatial = self%get_names(icw_spatial)
 
-    call p%box%generate_ic_data(&
-         fname = p%name,&
-         spatial = spatial,&
-         names = names,&
-         refs = refs,&
-         error = err)
-
     nx => self%nx
 
-    do i = 1, size(names)
-       call self%add(&
-            name = names(i),&
-            options = [p%options,icw_boundary],&
-            shape = [nx(:i-1),nx(i+1:)],&
-            error = err, &
-            refs = refs)
-       if( err /= FPDE_STATUS_OK ) then
-          if(present(error)) error = err
-          call self%log(FPDE_STATUS_ERROR,&
-               "Unable to add boundary condition for function ["&
-               //trim(p%name)//"].")
-          return
-       end if
+    do j = 1, self%get_dim()
+
+       call p%box%generate_ic_data(&
+            var = j,&
+            fname = p%name,&
+            spatial = spatial,&
+            names = names,&
+            refs = refs,&
+            error = err)
+
+       do i = 1, size(names)
+          call self%add(&
+               name = names(i),&
+               options = [p%options,icw_boundary],&
+               shape = [nx(:j-1),1,nx(j+1:)],&
+               error = err, &
+               refs = refs)
+
+          if( err /= FPDE_STATUS_OK ) then
+             if(present(error)) error = err
+             call self%log(FPDE_STATUS_ERROR,&
+                  "Unable to add boundary condition for function ["&
+                  //trim(p%name)//"].")
+             return
+          end if
+
+       end do
 
     end do
+
 
   end subroutine add_boundary_data
 
@@ -468,7 +486,6 @@ contains
     ! local variables
     real, pointer :: v(:), s
     type(param), pointer :: p
-    ! type(param) :: p
     integer :: err, i
 
     if(present(error)) error = FPDE_STATUS_OK
@@ -501,7 +518,7 @@ contains
   function derivative_name(fname, derivative) result(r)
     character(len=*) :: fname, derivative(:)
 
-    character(len=NAME_LEN) :: r
+    character(len=:), allocatable :: r
 
     r = icw_derivative_name// "(" // &
          trim(fname) // "," // &

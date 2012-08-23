@@ -34,7 +34,9 @@ contains
     real, intent(out) :: fout(:,:)
 
     real, pointer :: av(:), v(:)
-    integer :: n, i, err
+    integer :: n, i, err, nrows
+
+    if(present(error)) error = FPDE_STATUS_OK
 
     call ic%get(a,vec=v,error=err)
 
@@ -45,9 +47,10 @@ contains
        return
     end if
 
-    av => v(1:size(fout,2))
+    nrows = size(fout,2)
+    av => v(1:nrows)
 
-    do i = 1, size(fout,2)
+    do i = 1, nrows
        fout(:,i) = fin(2:,i)+2*(xin(1,i)-xin(2:,i))*av(i)
     end do
 

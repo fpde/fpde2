@@ -61,6 +61,7 @@ contains
        end if
        allocate(p%entries(size(p%nx),2))
        p%name = "boundary_box"
+       p%after_init = .true.
     else
        call p%log(FPDE_LOG_WARNING,&
             "Trying to call init() for a second time, this call to &
@@ -150,14 +151,15 @@ contains
   end subroutine get
 
 
-  subroutine generate_ic_data(self, fname, spatial, names, refs, error)
+  subroutine generate_ic_data(self, var, fname, spatial, names, refs, error)
     class(boundary_box), target :: self
+    integer, intent(in) :: var
     character(len=*), intent(in) :: fname, spatial(:)
     character(len=:), allocatable, intent(out) :: names(:)
     type(icicles_referencer), allocatable, intent(out) :: refs(:)
     integer, intent(out), optional :: error
 
-    integer :: i, j, k, maxlen
+    integer :: j, k, maxlen
     type(iced_boundary), pointer :: ib
     integer, pointer :: nx(:)
     character(len=:), allocatable :: ns(:)
@@ -167,13 +169,17 @@ contains
     if(present(error)) error = FPDE_STATUS_OK
 
     if( .not. self%after_init) then
-       !! @todo error
+       call self%log(FPDE_LOG_ERROR,&
+            "Calling generate_ic_data() before init().")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
 
     ! this function should be called only once
     if( self%after_generate ) then
-       !! @todo error
+       call self%log(FPDE_LOG_ERROR,&
+            "Calling generate_ic_data() for a second time.")
+       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
 
@@ -186,28 +192,28 @@ contains
 
     nx => self%nx
 
-    do i = 1, size(self%entries,1)
-       do j = 1, 2
-          ib => self%entries(i,j)
-          call ib%generate_references(&
-               length = product([nx(:i-1),nx(i+1:)]),&
-               refs = rs)
+    ! do i = 1, size(self%entries,1)
+    do j = 1, 2
+       ib => self%entries(var,j)
+       call ib%generate_references(&
+            length = product([nx(:var-1),1,nx(var+1:)]),&
+            refs = rs)
 
-          ns = ib%generate_names(&
-               fname = fname,&
-               var = spatial(i),&
-               dir = merge(icw_dir_left,icw_dir_right,j==1))
+       ns = ib%generate_names(&
+            fname = fname,&
+            var = spatial(var),&
+            dir = merge(icw_dir_left,icw_dir_right,j==1))
 
-          do k = 1, size(ns)
-             ns(k) = ns(k)
-          end do
-
-          maxlen=max(len(ns),len(names))
-          names = [character(len=maxlen) :: names,ns]
-          rs_temp = refs
-          refs = [rs_temp,rs]
+       do k = 1, size(ns)
+          ns(k) = ns(k)
        end do
+
+       maxlen=max(len(ns),len(names))
+       names = [character(len=maxlen) :: names,ns]
+       rs_temp = refs
+       refs = [rs_temp,rs]
     end do
+    ! end do
 
     self%after_generate = .true.
 

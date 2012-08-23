@@ -36,6 +36,8 @@ contains
     real, pointer :: av(:), v(:)
     integer :: n, i, err
 
+    if(present(error)) error = FPDE_STATUS_OK
+
     call ic%get(a,vec=v,error=err)
 
     if( err /= FPDE_STATUS_OK ) then
