@@ -1,7 +1,7 @@
 module class_boundary
 
   use class_platonic
-  use class_icicles
+  use class_passive_icicles
   use constants_module
 
   private
@@ -10,7 +10,7 @@ module class_boundary
      private
      character(len=:), allocatable :: param_names(:)
    contains
-     procedure :: init
+     ! procedure :: init
      procedure(gen_val), deferred :: generate_values
      procedure, non_overridable :: get_param_names
      procedure, non_overridable :: set_param_names
@@ -18,9 +18,9 @@ module class_boundary
 
   interface
      subroutine gen_val(self, ic, fin, fout, xin, error)
-       import boundary, icicles
+       import boundary, passive_icicles
        class(boundary) :: self
-       type(icicles), intent(in) :: ic
+       class(passive_icicles), intent(in) :: ic
        integer, intent(out), optional :: error
        real, intent(in) :: fin(:,:), xin(:,:)
        real, intent(out) :: fout(:,:)
@@ -28,13 +28,6 @@ module class_boundary
   end interface
 
 contains
-
-  subroutine init(p, error)
-    class(boundary), target :: p
-    integer, optional, intent(out) :: error
-    if(present(error)) error = FPDE_STATUS_OK
-    p%name = "Boundary"
-  end subroutine init
 
   function get_param_names(self)
     class(boundary) :: self

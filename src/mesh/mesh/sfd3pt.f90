@@ -45,8 +45,7 @@ contains
 
     integer :: j, n, kk
     integer, allocatable :: ders(:,:)
-
-    real :: h
+    real :: h2
 
     ders = self%get_calculable_derivatives()
 
@@ -57,16 +56,18 @@ contains
     end if
 
     n = size(f)
-    h = x(2) - x(1)             ! we assume x is a uniform grid
+    h2 = 2.*(x(2) - x(1))
 
     do kk = 1, size(k)
        if( kk == 1 ) then
-          forall( j = 2 : n - 1 )
-             ! df(j,kk)=(f(j+1)-f(j-1))/h/2.
-             df(j,kk)=(f(j+1)-2*f(j)+f(j-1))/h/h
-          end forall
-          df(1,kk) = (f(2)-f(1  ))/h
-          df(n,kk) = (f(n)-f(n-1))/h
+
+          do j = 2, n - 1
+             ! df(j,kk)=(f(j+1)-f(j-1))/(x(j+1)-x(j-1))
+             df(j,kk)=(f(j+1)-f(j-1))/h2
+          end do
+
+          df(1,kk) = (f(2)-f(1  ))/(x(2)-x(1))
+          df(n,kk) = (f(n)-f(n-1))/(x(n)-x(n-1))
        end if
     end do
 

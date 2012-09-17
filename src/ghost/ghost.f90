@@ -31,16 +31,16 @@ contains
 
     integer :: err
     ! integer, pointer :: nx(:)
-    character(len=NAME_LEN), allocatable :: temporal
+    character(len=:), allocatable :: t
 
     if(present(error)) error = FPDE_STATUS_ERROR
 
     ! temporal = icw%get_names(icw_temporal)
-    temporal = icw%get_temporal(err)
+    t = icw%get_t(err)
 
     ! check for any temporal derivatives
     if( err == FPDE_STATUS_OK ) then
-       if( any(alpha2 == temporal) ) then
+       if( any(alpha2 == t) ) then
           if(present(error)) error = FPDE_STATUS_ERROR
           call self%log(FPDE_LOG_ERROR, &
                "Temporal derivatives cannot be updated (due to unknown bo&

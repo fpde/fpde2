@@ -65,18 +65,22 @@ contains
     character(len=*), intent(in), target :: alpha2(:,:), fname
     integer, optional, intent(out) :: error
 
-    character(len=NAME_LEN) :: xname
+    character(len=:), allocatable :: xname
     integer, allocatable, save :: ndx(:)
-    integer :: nx, nd, i, gp, err
+    integer :: nx, nd, i, gp, err, j, err1, err2
     real, pointer :: x(:), f(:), df(:,:), df1(:)
     type(boundary_box), pointer :: bbox
     type(iced_boundary), pointer :: b_left, b_right
+
+    real :: ff(2,1), xx(2,1), ffout(1,1)
+
+    if(present(error)) error = FPDE_STATUS_ERROR
 
     ! get name of spatial variable
     ! spatial = icw%get_names(icw_spatial)
     ! at this point we assume that spatial is of size 1, it is safe
     ! because update_derivatives() already checked that.
-    xname   = icw%get_spatial(1)
+    xname   = icw%get_x(1)
 
     ! translate string representation of alpha2 to integer
     ! representation
@@ -90,18 +94,17 @@ contains
     if( err == FPDE_STATUS_ERROR .or. .not. associated(bbox) ) then
        call self%log(FPDE_LOG_ERROR, "Unable to extract boundary&
             & box.")
-       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
 
 
     ! get boundary conditions
-    call bbox%get( 1, 1, b_left)
-    call bbox%get( 1, 2, b_right)
-    if( err /= FPDE_STATUS_OK ) then
+    b_left  => bbox%get( 1, 1, error = err1 )
+    b_right => bbox%get( 1, 2, error = err2 )
+
+    if( any( [err1,err2] /= FPDE_STATUS_OK ) ) then
        call self%log(FPDE_LOG_ERROR,&
             "Unable to extract boundary conditions from boundary_box")
-       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
 
@@ -112,11 +115,18 @@ contains
     call fill_in_temporary_data(self, icw, fname, xname, m, b_left,&
          b_right, error = err)
 
+    ! call b_right%generate_values(&
+    !      fin = ff,&
+    !      fout = ffout,&
+    !      xin = xx,&
+    !      error = err)
+
     if( err /= FPDE_STATUS_OK ) then
        call self%log(FPDE_LOG_ERROR, "Unable to fill the temporary data.")
-       if(present(error)) error = FPDE_STATUS_ERROR
        return
     end if
+
+    if(present(error)) error = FPDE_STATUS_OK
 
     ! assign new short names for temporary variables
     x  => self%x
@@ -129,12 +139,18 @@ contains
     ! copy values back to icicles
     do i = 1, nd
        call icw%get(icw%derivative_name(fname,alpha2(:,i)), vec = df1)
-       df1(1:nx) = df(gp+1:nx+gp,i)
+       !dir$ ivdep
+       !dir$ vector always
+       do j = 1, nx
+          df1(j) = df(gp+j,1)
+       end do
     end do
 
   end subroutine update_derivatives
 
 
+  !! @todo change arguments so that fname and xname are replaced by
+  !! arrays x(:) and f(:). Ideally icw should not be needed as an argument
   subroutine fill_in_temporary_data(self, icw, fname, xname, m,&
        b_left, b_right, error)
     type(ghost1d), target :: self
@@ -157,7 +173,7 @@ contains
     call icw%get( name = fname, vec = f, error = err1)
     call icw%get( name = xname, vec = x, error = err2)
 
-    if(err1 /= FPDE_STATUS_OK .or. err2 /= FPDE_STATUS_OK) then
+    if( any( [err1,err2] /= FPDE_STATUS_OK )) then
        call self%log(FPDE_LOG_ERROR,&
             "Could not get the pointer to ["//trim(fname)//"] or ["&
             //trim(xname)//"].")

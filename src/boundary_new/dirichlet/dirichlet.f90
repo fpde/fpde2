@@ -1,7 +1,7 @@
 module class_boundary_dirichlet
 
   use class_boundary
-  use class_icicles
+  use class_passive_icicles
   use logger_module
   use constants_module
 
@@ -28,7 +28,7 @@ contains
 
   subroutine generate_values(self, ic, fin, fout, xin, error)
     class(boundary_dirichlet) :: self
-    type(icicles), intent(in) :: ic
+    class(passive_icicles), intent(in) :: ic
     integer, intent(out), optional :: error
     real, intent(in) :: fin(:,:), xin(:,:)
     real, intent(out) :: fout(:,:)

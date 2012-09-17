@@ -1,13 +1,13 @@
 module class_boundary_neumann
 
   use class_boundary
-  use class_icicles
+  use class_passive_icicles
   use logger_module
   use constants_module
 
   private
 
-  character(len=*), parameter :: a = "a"
+  character(len=*), parameter :: a = "z"
 
   type, public, extends(boundary) :: boundary_neumann
    contains
@@ -28,12 +28,12 @@ contains
 
   subroutine generate_values(self, ic, fin, fout, xin, error)
     class(boundary_neumann) :: self
-    type(icicles), intent(in) :: ic
+    class(passive_icicles), intent(in) :: ic
     integer, intent(out), optional :: error
     real, intent(in) :: fin(:,:), xin(:,:)
     real, intent(out) :: fout(:,:)
 
-    real, pointer :: av(:), v(:)
+    real, pointer :: v(:)
     integer :: n, i, err, nrows
 
     if(present(error)) error = FPDE_STATUS_OK
@@ -48,10 +48,9 @@ contains
     end if
 
     nrows = size(fout,2)
-    av => v(1:nrows)
 
     do i = 1, nrows
-       fout(:,i) = fin(2:,i)+2*(xin(1,i)-xin(2:,i))*av(i)
+       fout(:,i) = fin(2:,i)+2*(xin(1,i)-xin(2:,i))*v(i)
     end do
 
   end subroutine generate_values

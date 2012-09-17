@@ -16,7 +16,10 @@ module class_icicles_wrap
 
   use constants_module
   use class_icicles
+  use class_iced_boundary
   use class_platonic
+  use class_named_vector
+  use class_icicles_referencer
   use helper_module
   use class_boundary_box
   use logger_module
@@ -27,495 +30,591 @@ module class_icicles_wrap
   !! Structure holding additional data describing a "function" or
   !! "entry". It exapnds the data contained in icicles.
   !!
-  type :: param
-     !> somehow the len=: does not work, hence len=NAME_LEN
-     ! character(len=:), allocatable :: name
-     character(len=NAME_LEN) :: name
+  type, extends(named_vector) :: extended_vector
      !> options is a list of strings, e.g. ["spatial", "dependent"]
      character(len=:), allocatable :: options(:)
+     character(len=:), allocatable :: derivatives(:,:)
      !> boundary_box contains all information about boundray
      !! conditions
+     !! @todo remove pointer attribute
      type(boundary_box), pointer :: box => null()
-     !> e.g. shape = [nx,ny,nz] etc. for scalar it should be [1]
-     integer, allocatable :: shape(:)
-  end type param
+     logical, allocatable :: shape_mask(:)
+     type(icicles_referencer), allocatable :: refs(:)
+   contains
+     final :: extended_vector_finalize
+  end type extended_vector
+
+  ! extended vector constructor
+  interface extended_vector
+     module procedure :: extended_vector_constructor
+  end interface extended_vector
 
 
   !>
   !! icicles_wrap is an extension to icicles. It contains information
-  !! about mesh size (nx) and about functions (params)
+  !! about mesh size (nx) and about functions (vectors)
   !!
   type, public, extends(platonic) :: icicles_wrap
      private
-     type(icicles), pointer :: ic => null()
-     type(param), allocatable :: params(:) !array of parameters
-     integer, allocatable:: nx(:)
-     logical :: after_init = .false.
-     character(len=:), allocatable :: temporal
-     character(len=:), allocatable :: spatial(:)
+     type(extended_vector), allocatable :: vectors(:)
+     integer, allocatable :: nx(:)
+     character(len=:), allocatable :: t
+     character(len=:), allocatable :: x(:)
+     !! @todo use references and change interface of get_t and get_x
+     !! to also return a pointer to the location of t and x respectively
+     ! type(icicles_referencer), allocatable :: t
+     ! type(icicles_referencer), allocatable :: x(:)
    contains
-     ! procedure :: from_lua
      procedure :: init
+
      procedure :: set_nx
+     procedure :: get_nx
+
+     procedure :: get_dim
+
      procedure :: set_pointers
      procedure :: total_length
-     procedure :: get_dim
-     procedure, private :: get_all_nx
-     procedure, private :: get_some_nx
-     generic :: get_nx => get_all_nx, get_some_nx
+
      procedure :: add
-     procedure :: add_spatial
-     procedure :: get_spatial
-     procedure :: get_temporal
-     procedure :: get_names
      procedure :: get
-     procedure, private :: add_boundary_data
-     procedure, nopass :: derivative_name
+
+     procedure :: get_names
+
+     procedure :: set_x
+     procedure :: get_x
+
+     procedure :: set_t
+     procedure :: get_t
+
+     procedure :: derivative_name => internal_derivative_name
+
+     procedure, private :: internal_add_vector
+     procedure, private :: internal_add_derivatives
+     procedure, private :: internal_add_boundary_parameters
+
+     procedure, private :: internal_derivative_name
+     procedure, private :: internal_boundary_name
   end type icicles_wrap
 
+
 contains
+
+  subroutine set_nx(self, nx, error)
+    class(icicles_wrap) :: self
+    integer, intent(in) :: nx(:)
+    integer, intent(out), optional :: error
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    if( allocated(self%nx) ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "set_nx(): nx already set, ignoring")
+       return
+    end if
+
+    if( any(nx <= 0) ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "set_nx(): nx > 0 required.")
+       return
+    end if
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    self%nx = nx
+
+  end subroutine set_nx
+
+
+  function get_nx(self, i)
+    class(icicles_wrap) :: self
+    integer, intent(in) :: i
+    integer :: get_nx
+    get_nx = merge( 0, self%nx(i), i > size(self%nx) )
+  end function get_nx
+
+
+  function get_dim(self)
+    class(icicles_wrap) :: self
+    integer :: get_dim
+    get_dim = size(self%nx)
+  end function get_dim
+
+
+  function get_t(self, error)
+    class(icicles_wrap) :: self
+    integer, optional, intent(out) :: error
+
+    character(len=:), allocatable :: get_t
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    if( allocated(self%t) ) then
+       if( present(error) ) error = FPDE_STATUS_OK
+       get_t = self%t
+    else
+       get_t = ""
+    end if
+
+  end function get_t
+
+
+  function get_x(self, i, error)
+    class(icicles_wrap) :: self
+    integer, intent(in) :: i
+    integer, optional, intent(out) :: error
+
+    character(len=:), allocatable :: get_x
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    if( .not. allocated(self%x)) then
+       get_x = ""
+    else if( i > size(self%x)) then
+       get_x = ""
+    else
+       if( present(error) ) error = FPDE_STATUS_OK
+       get_x = self%x(i)
+    end if
+
+  end function get_x
+
+
+  function get_names(self, option)
+    class(icicles_wrap) :: self
+    character(len=*), intent(in), optional :: option
+
+    character(len=:), allocatable :: get_names(:)
+
+    integer :: maxlen, i
+
+    allocate( character(len=0) :: get_names(0) )
+
+    do i = 1, size(self%vectors)
+       associate(v => self%vectors(i))
+
+         if( present(option) ) then
+            if( all(v%options /= option)) then
+               cycle
+            end if
+         end if
+
+         maxlen = max(len(get_names), len(v%name))
+         get_names = [ character(len=maxlen) :: get_names, v%name ]
+
+       end associate
+    end do
+
+  end function get_names
 
 
   subroutine init(p, error)
     class(icicles_wrap), target :: p
     integer, optional, intent(out) :: error
 
-    if(present(error)) error = FPDE_STATUS_OK
-    p%name = "icicles_wrap"
+    if( present(error) ) error = FPDE_STATUS_ERROR
 
-    ! allocate icicles
-    allocate(p%ic)
-    call p%ic%init()
-
-    ! allocate parameters
-    allocate(p%params(0))
-
-    ! check if nx was set
     if( .not. allocated(p%nx) ) then
-       call p%log(FPDE_LOG_ERROR, &
-            "nx not set, use set_nx([nx1,nx2,...]) before init()")
-       if(present(error)) error = FPDE_STATUS_OK
+       call p%log(FPDE_LOG_ERROR,&
+            "init(): nx not set, call set_nx() first.")
+       return
     end if
 
-    p%after_init = .true.
+    if( present(error) ) error = FPDE_STATUS_OK
+
+    allocate(p%vectors(0))
+
   end subroutine init
 
 
-  subroutine set_nx(self, nx)
-    class(icicles_wrap) :: self
-    integer :: nx(:)
+  function total_length(self, names, error) result(L)
+    class(icicles_wrap), target :: self
+    character(len=*), intent(in), optional :: names(:)
+    integer, intent(out), optional :: error
 
-    if( .not. self%after_init ) then
-       self%nx = nx
-    else
-       call self%log(FPDE_LOG_WARNING,&
-            "Setting nx is forbidden after calling init().")
-    end if
+    integer :: L
 
-  end subroutine set_nx
+    class(extended_vector), pointer :: p
+    integer :: i
+
+    if( present(error) ) error = FPDE_STATUS_OK
+
+    L = 0
+    do i = 1, size(self%vectors)
+       p => self%vectors(i)
+       if( present(names) ) then
+          if( all(names /= p%name) ) cycle
+       end if
+
+       L = L + product( self%nx, self%vectors(i)%shape_mask)
+    end do
+
+  end function total_length
 
 
   subroutine set_pointers(self, vec, names, error)
     class(icicles_wrap), target :: self
     real, target, intent(in) :: vec(:)
     character(len=*), intent(in), optional :: names(:)
-    integer, optional, intent(out) :: error
+    integer, intent(out), optional :: error
 
-    integer :: err
+    integer :: k, i, j, inc
+    character(len=:), allocatable :: namezzz
 
-    if( self%after_init ) then
-       if( present(names) ) then
-          call self%ic%set_pointers(vec, names, error = err)
-       else
-          call self%ic%set_pointers(vec, error = err)
-       end if
+    if(present(error)) error = FPDE_STATUS_ERROR
 
-       if(present(error)) error = err
-       return
-    else
-       call self%log(FPDE_LOG_WARNING,&
-            "Trying to call set_pointers on uninitialized icicles_wrap&
-            &. Call init() first.")
-       if(present(error)) error = FPDE_STATUS_ERROR
-    end if
+    ! k is a current position in vec(:), each vector from icicles_wrap
+    ! will be pointing to a position in vec deisgnated by k
+    k = 1
+    do i = 1, size(self%vectors)
+       associate(p => self%vectors(i) )
+
+         if( present(names) ) then
+            if( all(names /= p%name) ) cycle
+         end if
+
+         inc = product( self%nx, mask = p%shape_mask )
+
+         ! return here will result in error = FPDE_STATUS_ERROR
+         if( k + inc - 1 > size(vec)) then
+            call self%log(FPDE_STATUS_ERROR,&
+                 "set_pointers(): vec too small.")
+            return
+         end if
+
+         p%val => vec(k:k+inc-1)
+         do j = 1, size(p%refs)
+            ! namezzz = p%refs(j)%get_name()
+            ! print *, i, j, namezzz
+            call p%refs(j)%set_to( vec(k:k+inc-1) )
+         end do
+
+         k = k + inc
+       end associate
+    end do
+
+    if(present(error)) error = FPDE_STATUS_OK
 
   end subroutine set_pointers
 
 
-  function total_length(self, names)
+  subroutine set_x( self, names, error )
     class(icicles_wrap), target :: self
-    integer :: total_length
-    character(len=*), intent(in), optional :: names(:)
-
-    if(present(names)) then
-       total_length = self%ic%total_length(names)
-    else
-       total_length = self%ic%total_length()
-    end if
-
-  end function total_length
-
-
-  !> Returns base shape of data in icicles
-  !!
-  !! @return [nx1,nx2,...]
-  !!
-  function get_all_nx(self)
-    class(icicles_wrap) :: self
-    integer, allocatable :: get_all_nx(:)
-    get_all_nx = self%nx
-  end function get_all_nx
-
-  !>
-  !! @return dimension of the system
-  !!
-  function get_dim(self) result(d)
-    class(icicles_wrap) :: self
-    integer :: d
-    d = size(self%nx)
-  end function get_dim
-
-
-  !> Returns a shape of data in a direction given by var
-  !!
-  !! @return nx(var)
-  !!
-  function get_some_nx(self, var)
-    class(icicles_wrap) :: self
-    integer, intent(in) :: var
-    integer :: get_some_nx
-    get_some_nx = self%nx(var)
-  end function get_some_nx
-
-
-  !> returns names matching option
-  !!
-  !! @todo regexp options
-  !!
-  !! @param option
-  !!
-  function get_names(self, option)
-    class(icicles_wrap), intent(in) :: self
-    character(len=*), intent(in), optional :: option
-    character(len=:), allocatable :: get_names(:)
-
-    if(present(option)) then
-       get_names = pack(self%params%name, optionq(self%params,option))
-    else
-       get_names = self%params%name
-    end if
-
-  end function get_names
-
-
-  function get_temporal(self, error) result(r)
-    class(icicles_wrap), intent(in) :: self
+    character(len=*), intent(in) :: names(:)
     integer, optional, intent(out) :: error
 
-    character(len=NAME_LEN) :: r
-
-    if(present(error)) error = FPDE_STATUS_OK
-
-    if(allocated(self%temporal)) then
-       r = self%temporal
-    else
-       if(present(error)) error = FPDE_STATUS_ERROR
-       r = ""
-    end if
-
-  end function get_temporal
-
-
-  function get_spatial(self, var, error) result(r)
-    class(icicles_wrap), intent(in) :: self
-    integer :: var
-    integer, optional, intent(out) :: error
-
-    character(len=NAME_LEN) :: r
-
+    integer :: i
 
     if(present(error)) error = FPDE_STATUS_ERROR
-    r = ""
 
-    if(allocated(self%spatial)) then
-       if(.not. var > size(self%spatial)) then
-          if(present(error)) error = FPDE_STATUS_OK
-          r = self%spatial(var)
-       end if
+    if( size(names) /= self%get_dim()) then
+       call self%log(FPDE_LOG_ERROR,&
+            "size(names) /= dim")
+       return
     end if
-
-  end function get_spatial
-
-
-  !> Implemented for convenient use, it calls add() for each element
-  !! of spatial with options = icw_spatial
-  !!
-  !! @param spatial
-  !! @param error
-  !!
-  !! @todo 10 add flag add_spatial_ok to icw, and make it the only way
-  !! to set up the spatial variables. Also, optimize against calls of
-  !! get(spatial_variable).
-  !!
-  subroutine add_spatial(self, spatial, error)
-    class(icicles_wrap) :: self
-    character(len=*), intent(in) :: spatial(:)
-    integer, intent(out), optional :: error
-
-    integer :: i, err
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    if( .not. self%after_init) then
-       call self%log(FPDE_STATUS_ERROR,&
-            "Calling add_spatial() before init().")
-       if(present(error)) error = FPDE_STATUS_ERROR
-       return
-    end if
-
-    if( size(spatial) /= size(self%get_nx()) ) then
-       call self%log(FPDE_STATUS_ERROR,&
-            "Calling add_spatial() with spatial incompatible with nx(:).")
-       if(present(error)) error = FPDE_STATUS_ERROR
-       return
-    end if
-
-    do i = 1, size(spatial)
-       call self%add(&
-            name = spatial(i),&
-            options = [icw_spatial],&
-            error = err)
-       if(err /= FPDE_STATUS_OK) then
-          call self%log(FPDE_STATUS_ERROR,&
-               "add_spatial() failed to add some of the spatial variables.")
-          if(present(error)) error = FPDE_STATUS_ERROR
-          return
-       end if
+    do i = 1, size(names)
+       call self%add( names(i), options = [icw_spatial] )
     end do
 
-    self%spatial = spatial
+    self%x = names
 
-  end subroutine add_spatial
+  end subroutine set_x
 
 
-  !> Function used to add entries to icicles_wrap.
-  !!
-  !! add() lets the user to add entries to icicles_wrap. Each entry
-  !! can be later on accessed with get(). All arguments besides name
-  !! are optional.
-  !!
-  !! @param name name of the entry to be added
-  !! @param options array of options of the entry
-  !! @param shape shape of the entry
-  !! @param box boundary condtitions of the entry
-  !! @param derivatives possible derivatives of the entry
-  !! @param error
-  !!
-  recursive subroutine add(self, name, options, shape,&
-       box, derivatives, refs, error)
-    use class_boundary
-    class(icicles_wrap) :: self
-    character(len=*), intent(in) :: name
-    character(len=*), intent(in), optional ::  options(:),&
-         derivatives(:,:)
-    integer, intent(in), optional :: shape(:)
-    class(boundary_box), intent(in), target, optional :: box
-    integer, intent(out), optional :: error
-    type(icicles_referencer), optional, intent(in) :: refs(:)
-
-    ! local variables
-    type(param) :: p
-    ! temporary variables needed to circumvent the bug
-    type(param), allocatable :: pp(:)
-    integer :: i, err
-    ! boundary variables
-    character(len=:), allocatable :: spatial(:)
-
-    if(present(error)) error = FPDE_STATUS_OK
-
-    if(any(self%params%name==name)) then
-       if(present(error)) error = FPDE_STATUS_ERROR
-       call self%log(FPDE_LOG_ERROR,&
-            "add: Trying to add a duplicate entry ["&
-            //trim(name)//"], ignoring.")
-       return
-    end if
-
-    ! initialize entry
-    p%name = name
-
-    if( present(options) ) then
-       p%options = options
-       if(any(options==icw_temporal)) then
-          self%temporal = name
-       end if
-    else
-       ! by default allocate zero-sized options
-       allocate(character(len=0)::p%options(0))
-    end if
-
-    if( present(shape) ) then
-       p%shape = shape
-    else
-       ! default shape
-       p%shape = self%get_nx()
-    end if
-
-    if( present(box) ) then
-       ! make a deep copy of boundary box
-       allocate(p%box, source = box)
-       call self%add_boundary_data(p)
-    end if
-
-    if(present(derivatives))then
-       do i = 1, size(derivatives,2)
-          call self%add(&
-               name    = self%derivative_name(name, derivatives(:,i)), &
-               options = [p%options,icw_derivative],                   &
-               shape   = p%shape,                                      &
-               error   = err)
-          if( err/= FPDE_STATUS_OK ) then
-             if(present(error)) error = err
-             return
-          end if
-       end do
-    end if
-
-    ! add entry to registry
-
-    ! @bug the following should work in gfortran on after ifort gets
-    ! it fixed, see
-    ! http://software.intel.com/en-us/forums/showthread.php?t=107075
-
-    ! self%params = [self%params, p]
-
-    ! temporary fix is to use explicit reallocation:
-    pp = [self%params, p]
-    call move_alloc(pp, self%params)
-
-    ! add entry to icicles
-    if(present(refs)) then
-       call self%ic%add(name, product(p%shape), refs = refs)
-    else
-       call self%ic%add(name, product(p%shape))
-    end if
-
-  end subroutine add
-
-  subroutine add_boundary_data(self, p, error)
+  subroutine set_t( self, name )
     class(icicles_wrap), target :: self
-    type(param), intent(in) :: p
+    character(len=*), intent(in) :: name
+
+    call self%add( name, options = [icw_temporal] )
+
+    self%t = name
+
+  end subroutine set_t
+
+
+  subroutine get( self, name, vec, scal, options, box, derivatives, error )
+    class(icicles_wrap), target :: self
+    character(len=*), intent(in) :: name
+    real, pointer, intent(out), optional :: vec(:), scal
+    character(len=*), intent(out), optional :: options(:)
+    character(len=*), intent(out), optional :: derivatives(:,:)
+    type(boundary_box), pointer, intent(out), optional :: box
     integer, optional, intent(out) :: error
 
-    integer :: i, j, err
-    integer, pointer :: nx(:)
-    character(len=:), allocatable :: names(:), spatial(:)
-    type(icicles_referencer), allocatable :: refs(:)
+    class(extended_vector), pointer :: p
+    integer :: i
 
-    if(present(error)) error = FPDE_STATUS_OK
+    if( present(error) ) error = FPDE_STATUS_ERROR
 
-    spatial = self%get_names(icw_spatial)
-
-    nx => self%nx
-
-    do j = 1, self%get_dim()
-
-       call p%box%generate_ic_data(&
-            var = j,&
-            fname = p%name,&
-            spatial = spatial,&
-            names = names,&
-            refs = refs,&
-            error = err)
-
-       do i = 1, size(names)
-          call self%add(&
-               name = names(i),&
-               options = [p%options,icw_boundary],&
-               shape = [nx(:j-1),1,nx(j+1:)],&
-               error = err, &
-               refs = refs)
-
-          if( err /= FPDE_STATUS_OK ) then
-             if(present(error)) error = err
-             call self%log(FPDE_STATUS_ERROR,&
-                  "Unable to add boundary condition for function ["&
-                  //trim(p%name)//"].")
-             return
-          end if
-
-       end do
-
+    p => null()
+    do i = 1, size(self%vectors)
+       associate( v => self%vectors(i) )
+         if( v%name == name ) then
+            p => v
+            exit
+         end if
+       end associate
     end do
 
-
-  end subroutine add_boundary_data
-
-
-  !> Helper function to used find matching options
-  !!
-  !! @param o iciles_wrap entry of type(param)
-  !! @param el option we are looking for
-  !!
-  !! @return .true. if o has option el present
-  !!
-  elemental logical function optionq(o, el)
-    type(param), intent(in) :: o
-    character(len=*), intent(in) :: el
-    optionq = any(o%options == el)
-  end function optionq
-
-
-  subroutine get(self, name, vec, scal, options, box, shape, error)
-    class(icicles_wrap), intent(in), target :: self
-    character(len=*), intent(in) :: name
-    character(len=:), intent(out), optional, allocatable :: options(:)
-    type(boundary_box), intent(out), pointer, optional :: box
-    integer, intent(out), allocatable, optional :: shape(:)
-    real, intent(out), optional, pointer :: vec(:), scal
-    integer, intent(out), optional :: error
-
-    ! local variables
-    real, pointer :: v(:), s
-    type(param), pointer :: p
-    integer :: err, i
-
-    if(present(error)) error = FPDE_STATUS_OK
-
-    call self%ic%get(name, v, s, err)
-
-    do i = 1, size(self%params)
-       if(self%params(i)%name == name) then
-          p => self%params(i)
-          exit
-       end if
-    end do
-
-    if( .not. ( err == FPDE_STATUS_OK .and. &
-       associated(p)) ) then
+    if( .not. associated(p) ) then
        call self%log(FPDE_LOG_ERROR,&
-            "No entry named ["//trim(name)//"]")
-       if(present(error)) error = FPDE_STATUS_ERROR
+            "Unable to find vector ["//trim(name)//"]")
        return
     end if
 
-    if( present(scal     ))  scal    => s
-    if( present(vec      ))  vec     => v
-    if( present(options  ))  options =  p%options
-    if( present(box      ))  box     => p%box
-    if( present(shape    ))  shape   =  p%shape
+    if(present(error)) error = FPDE_STATUS_OK
+
+    if( associated(p%val)) then
+       if( present(vec) ) vec                 => p%val
+       if( present(scal) ) scal               => p%val(1)
+    end if
+
+    if( allocated(p%options)) then
+       if( present(options) )         options = p%options
+    end if
+
+    if( present(box) )                    box => p%box
+
+    if( allocated(p%options) ) then
+       if( present(derivatives) ) derivatives = p%derivatives
+    end if
 
   end subroutine get
 
-  function derivative_name(fname, derivative) result(r)
-    character(len=*) :: fname, derivative(:)
+  !> Just a constructor for extended_vector
+  !!
+  !! @param name
+  !! @param dim
+  !!
+  !! @return
+  !!
+  function extended_vector_constructor(name, dim) result(vec)
+    character(len=*), intent(in) :: name
+    integer, intent(in) :: dim
 
-    character(len=:), allocatable :: r
+    type(extended_vector) :: vec
 
-    r = icw_derivative_name// "(" // &
+    vec%name        = name
+    vec%options     = reshape([character(len=0)::],[0])
+    vec%derivatives = reshape([character(len=0)::],[0,0])
+    allocate(vec%shape_mask(dim))
+    vec%shape_mask  = .true.
+    allocate(vec%refs(0))
+
+  end function extended_vector_constructor
+
+
+  subroutine extended_vector_finalize(self)
+    type(extended_vector) :: self
+
+    ! if( associated(self%box) ) deallocate(self%box)
+  end subroutine extended_vector_finalize
+
+
+  subroutine add( self, name, options, box, derivatives, error )
+    class(icicles_wrap) :: self
+    character(len=*), intent(in) :: name
+    character(len=*), intent(in), optional :: options(:), derivatives(:,:)
+    ! type(boundary_box), intent(in), optional :: box
+    type(boundary_box), intent(in), optional, target :: box
+    integer, optional, intent(out) :: error
+
+    type(extended_vector) :: vec
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    vec = extended_vector(name = name, dim = self%get_dim())
+
+    if( present(options) ) then
+       vec%options = options
+    end if
+
+    if( present(derivatives) ) then
+       vec%derivatives = derivatives
+    end if
+
+    if( present(box) ) then
+       ! after this line box can be safely deallocated outside the
+       ! add()
+       allocate(vec%box)
+       vec%box = box
+    end if
+
+    ! call self%internal_add_derivatives( vec )
+    ! call self%internal_add_boundary_parameters( vec )
+    call self%internal_add_vector( vec )
+
+    if(associated(vec%box)) deallocate(vec%box)
+
+    if( present(error) ) error = FPDE_STATUS_OK
+
+  end subroutine add
+
+
+  subroutine internal_add_vector( self, vector )
+    class(icicles_wrap) :: self
+    type(extended_vector), intent(in) :: vector
+    ! type(extended_vector) :: vector
+
+    type(extended_vector), allocatable :: vectors_temp(:)
+
+    !! @todo debug variables, delete
+    character(len=:), allocatable ::namezzz
+    integer :: i
+
+    ! First we should add all the sattelite entries required for
+    ! vector to work, i.e. derivatives and boundary parameters.
+    call self%internal_add_derivatives( vector )
+    call self%internal_add_boundary_parameters( vector )
+
+    ! It is important, the the table self%vectors is growed after
+    ! calling add_derivatives and add_boundary_parameters, because the
+    ! location of self%vectors may change after calling those
+    ! functions.
+
+    ! grow a table @todo ifort bug
+    vectors_temp = [self%vectors,vector]
+    self%vectors = vectors_temp
+    ! call move_alloc(vectors_temp, self%vectors)
+
+    ! print *, associated(vector%box)
+    ! print *, associated(self%vectors(size(self%vectors))%box)
+
+    ! after calling this function, vector may be safely finalized as
+    ! the copy of the information from vector%box will persist in
+    ! self%vectors(nv)%box
+    if( associated( vector%box ) ) then
+       associate( nv => size(self%vectors) )
+         allocate( self%vectors(nv)%box )
+         self%vectors(nv)%box = vector%box
+         ! deallocate(vector%box)
+       end associate
+    end if
+
+    ! print *, "State: ", size(self%vectors)
+
+    ! do i = 1, size(self%vectors)
+    !    associate( v => self%vectors(i) )
+    !      print *,v%name
+    !      if( size( v%refs ) > 0 ) then
+    !         namezzz = v%refs(1)%get_name()
+    !         print *, "\= ", namezzz
+    !      end if
+    !    end associate
+    ! end do
+
+  end subroutine internal_add_vector
+
+
+  subroutine internal_add_derivatives( self, vector )
+    class(icicles_wrap) :: self
+    type(extended_vector), intent(in) :: vector
+
+    character(len=:), allocatable :: dname
+    integer :: i
+
+    associate(                 &
+         x     => self%x,      &
+         fname => vector%name, &
+         d     => vector%derivatives )
+
+      do i = 1, size(d,2)
+         dname = self%internal_derivative_name( fname, d(:,i) )
+         call self%add( dname, options = [ icw_derivative ] )
+      end do
+
+    end associate
+
+  end subroutine internal_add_derivatives
+
+
+  subroutine internal_add_boundary_parameters(self, vector)
+    class(icicles_wrap) :: self
+    type(extended_vector), intent(in) :: vector
+
+    integer :: i, side, var, k, err, dim
+    type(extended_vector) :: vec
+    type(iced_boundary), pointer :: ib
+    character(len=:), allocatable :: namezzz
+
+    if( .not. associated(vector%box) ) return
+
+    dim = self%get_dim()
+
+    allocate(character(len=0) :: vec%derivatives(0,0))
+    allocate(vec%shape_mask(dim))
+
+    do side = 1,2
+       do var = 1, dim
+          ib => vector%box%get(dir = var, side = side, error = err)
+
+          if( err /= FPDE_STATUS_OK ) then
+             call self%log(FPDE_LOG_ERROR,&
+                  "internal_add_boundary_parameters(): Unable to retri&
+                  &eve boundary from boundary_box.")
+             return
+          end if
+
+          do k = 1, ib%get_param_num()
+
+             vec%refs = [ ib%get_param_ref(k) ]
+
+             ! namezzz = vec%refs(1)%get_name()
+             ! print *, namezzz
+
+             vec%name = self%internal_boundary_name(&
+                  fname = vector%name,&
+                  xname = self%get_x(var),&
+                  pname = vec%refs(1)%get_name(),&
+                  side  = side )
+
+             vec%options = [ icw_boundary ]
+
+             vec%shape_mask = .true.
+             vec%shape_mask(var) = .false.
+
+             call self%internal_add_vector(vec)
+
+             ! namezzz = self%vectors(size(self%vectors))%refs(1)%get_name()
+             ! print *, namezzz
+
+          end do
+          call ib%lock_refs()
+       end do
+    end do
+
+  end subroutine internal_add_boundary_parameters
+
+
+  function internal_derivative_name(self, fname, d) result(dname)
+    class(icicles_wrap) :: self
+    character(len=*), intent(in) :: fname, d(:)
+
+    character(len=:), allocatable :: dname
+
+    dname = icw_derivative_name// "(" // &
          trim(fname) // "," // &
-         trim(join(derivative,",")) // ")"
-  end function derivative_name
+         trim(join(d,",")) // ")"
+
+  end function internal_derivative_name
+
+
+  function internal_boundary_name(self, fname, xname, pname, side) result(name)
+    class(icicles_wrap) :: self
+    character(len=*), intent(in) :: fname, xname, pname
+    integer, intent(in) :: side
+
+    character(len=:), allocatable :: name
+
+    name = icw_boundary_name // "(" //&
+         trim(fname) // "," //&
+         trim(xname) // "," //&
+         merge("L", "R", side == 1) // "," //&
+         trim(pname) // ")"
+
+  end function internal_boundary_name
 
 
 end module class_icicles_wrap
