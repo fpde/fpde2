@@ -40,9 +40,7 @@ module class_icicles_wrap
      type(boundary_box), pointer :: box => null()
      logical, allocatable :: shape_mask(:)
      type(icicles_referencer), allocatable :: refs(:)
-   contains
-     final :: extended_vector_finalize
-  end type extended_vector
+   end type extended_vector
 
   ! extended vector constructor
   interface extended_vector
@@ -258,7 +256,6 @@ contains
     integer, intent(out), optional :: error
 
     integer :: k, i, j, inc
-    character(len=:), allocatable :: namezzz
 
     if(present(error)) error = FPDE_STATUS_ERROR
 
@@ -283,8 +280,6 @@ contains
 
          p%val => vec(k:k+inc-1)
          do j = 1, size(p%refs)
-            ! namezzz = p%refs(j)%get_name()
-            ! print *, i, j, namezzz
             call p%refs(j)%set_to( vec(k:k+inc-1) )
          end do
 
@@ -340,6 +335,13 @@ contains
     real, pointer, intent(out), optional :: vec(:), scal
     character(len=*), intent(out), optional :: options(:)
     character(len=*), intent(out), optional :: derivatives(:,:)
+    !! @bug if final method is added to boundary_box it will result in
+    !! segfaults in a call to icicles_wrap%get() due to a bug in ifort
+    !! 13.0.0 20120731, for more details see
+    !! http://software.intel.com/en-us/forums/topic/327918
+    !!
+    !! a temporary workaround is to remove intent(out) or change it
+    !! to intent(inout)
     type(boundary_box), pointer, intent(out), optional :: box
     integer, optional, intent(out) :: error
 
@@ -383,6 +385,7 @@ contains
 
   end subroutine get
 
+
   !> Just a constructor for extended_vector
   !!
   !! @param name
@@ -406,19 +409,12 @@ contains
   end function extended_vector_constructor
 
 
-  subroutine extended_vector_finalize(self)
-    type(extended_vector) :: self
-
-    ! if( associated(self%box) ) deallocate(self%box)
-  end subroutine extended_vector_finalize
-
-
   subroutine add( self, name, options, box, derivatives, error )
     class(icicles_wrap) :: self
     character(len=*), intent(in) :: name
     character(len=*), intent(in), optional :: options(:), derivatives(:,:)
     ! type(boundary_box), intent(in), optional :: box
-    type(boundary_box), intent(in), optional, target :: box
+    type(boundary_box), intent(in), optional :: box
     integer, optional, intent(out) :: error
 
     type(extended_vector) :: vec
@@ -433,20 +429,21 @@ contains
 
     if( present(derivatives) ) then
        vec%derivatives = derivatives
+       call self%internal_add_derivatives( name, derivatives )
     end if
 
     if( present(box) ) then
        ! after this line box can be safely deallocated outside the
        ! add()
+       ! at this point, vec contains a pointer to a copy of box
        allocate(vec%box)
+       ! to copy all the internal data the overloaded assignment has
+       ! to be used
        vec%box = box
+       call self%internal_add_boundary_parameters( name, vec%box )
     end if
 
-    ! call self%internal_add_derivatives( vec )
-    ! call self%internal_add_boundary_parameters( vec )
     call self%internal_add_vector( vec )
-
-    if(associated(vec%box)) deallocate(vec%box)
 
     if( present(error) ) error = FPDE_STATUS_OK
 
@@ -456,69 +453,25 @@ contains
   subroutine internal_add_vector( self, vector )
     class(icicles_wrap) :: self
     type(extended_vector), intent(in) :: vector
-    ! type(extended_vector) :: vector
 
     type(extended_vector), allocatable :: vectors_temp(:)
 
-    !! @todo debug variables, delete
-    character(len=:), allocatable ::namezzz
-    integer :: i
-
-    ! First we should add all the sattelite entries required for
-    ! vector to work, i.e. derivatives and boundary parameters.
-    call self%internal_add_derivatives( vector )
-    call self%internal_add_boundary_parameters( vector )
-
-    ! It is important, the the table self%vectors is growed after
-    ! calling add_derivatives and add_boundary_parameters, because the
-    ! location of self%vectors may change after calling those
-    ! functions.
-
-    ! grow a table @todo ifort bug
     vectors_temp = [self%vectors,vector]
     self%vectors = vectors_temp
-    ! call move_alloc(vectors_temp, self%vectors)
-
-    ! print *, associated(vector%box)
-    ! print *, associated(self%vectors(size(self%vectors))%box)
-
-    ! after calling this function, vector may be safely finalized as
-    ! the copy of the information from vector%box will persist in
-    ! self%vectors(nv)%box
-    if( associated( vector%box ) ) then
-       associate( nv => size(self%vectors) )
-         allocate( self%vectors(nv)%box )
-         self%vectors(nv)%box = vector%box
-         ! deallocate(vector%box)
-       end associate
-    end if
-
-    ! print *, "State: ", size(self%vectors)
-
-    ! do i = 1, size(self%vectors)
-    !    associate( v => self%vectors(i) )
-    !      print *,v%name
-    !      if( size( v%refs ) > 0 ) then
-    !         namezzz = v%refs(1)%get_name()
-    !         print *, "\= ", namezzz
-    !      end if
-    !    end associate
-    ! end do
 
   end subroutine internal_add_vector
 
 
-  subroutine internal_add_derivatives( self, vector )
+  subroutine internal_add_derivatives( self, fname, derivatives )
     class(icicles_wrap) :: self
-    type(extended_vector), intent(in) :: vector
+    character(len=*), intent(in) :: fname, derivatives(:,:)
 
     character(len=:), allocatable :: dname
     integer :: i
 
     associate(                 &
          x     => self%x,      &
-         fname => vector%name, &
-         d     => vector%derivatives )
+         d     => derivatives )
 
       do i = 1, size(d,2)
          dname = self%internal_derivative_name( fname, d(:,i) )
@@ -530,16 +483,14 @@ contains
   end subroutine internal_add_derivatives
 
 
-  subroutine internal_add_boundary_parameters(self, vector)
+  subroutine internal_add_boundary_parameters(self, fname, box)
     class(icicles_wrap) :: self
-    type(extended_vector), intent(in) :: vector
+    character(len=*), intent(in) :: fname
+    type(boundary_box), intent(in), target :: box
 
     integer :: i, side, var, k, err, dim
     type(extended_vector) :: vec
     type(iced_boundary), pointer :: ib
-    character(len=:), allocatable :: namezzz
-
-    if( .not. associated(vector%box) ) return
 
     dim = self%get_dim()
 
@@ -548,7 +499,7 @@ contains
 
     do side = 1,2
        do var = 1, dim
-          ib => vector%box%get(dir = var, side = side, error = err)
+          ib => box%get(dir = var, side = side, error = err)
 
           if( err /= FPDE_STATUS_OK ) then
              call self%log(FPDE_LOG_ERROR,&
@@ -561,11 +512,8 @@ contains
 
              vec%refs = [ ib%get_param_ref(k) ]
 
-             ! namezzz = vec%refs(1)%get_name()
-             ! print *, namezzz
-
              vec%name = self%internal_boundary_name(&
-                  fname = vector%name,&
+                  fname = fname,&
                   xname = self%get_x(var),&
                   pname = vec%refs(1)%get_name(),&
                   side  = side )
@@ -576,9 +524,6 @@ contains
              vec%shape_mask(var) = .false.
 
              call self%internal_add_vector(vec)
-
-             ! namezzz = self%vectors(size(self%vectors))%refs(1)%get_name()
-             ! print *, namezzz
 
           end do
           call ib%lock_refs()

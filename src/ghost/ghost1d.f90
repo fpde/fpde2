@@ -97,7 +97,6 @@ contains
        return
     end if
 
-
     ! get boundary conditions
     b_left  => bbox%get( 1, 1, error = err1 )
     b_right => bbox%get( 1, 2, error = err2 )
@@ -114,12 +113,6 @@ contains
     ! fill the temporary data using boundary conditions
     call fill_in_temporary_data(self, icw, fname, xname, m, b_left,&
          b_right, error = err)
-
-    ! call b_right%generate_values(&
-    !      fin = ff,&
-    !      fout = ffout,&
-    !      xin = xx,&
-    !      error = err)
 
     if( err /= FPDE_STATUS_OK ) then
        call self%log(FPDE_LOG_ERROR, "Unable to fill the temporary data.")
@@ -150,7 +143,13 @@ contains
 
 
   !! @todo change arguments so that fname and xname are replaced by
-  !! arrays x(:) and f(:). Ideally icw should not be needed as an argument
+  !! arrays x(:) and f(:). Ideally icw should not be needed as an
+  !! argument (to reduce a number of lookups)
+  !!
+  !! @todo use bbox instead of b_left and b_right as an argument? It
+  !! will reduce the number of arguments and make update_derivatives
+  !! cleaner. On the other hand reusability of the procedure is
+  !! degraded
   subroutine fill_in_temporary_data(self, icw, fname, xname, m,&
        b_left, b_right, error)
     type(ghost1d), target :: self
@@ -167,6 +166,7 @@ contains
     if(present(error)) error = FPDE_STATUS_OK
 
     gp = m%get_ghost_points(1)
+    ! to be obtained as size(x)
     nx = icw%get_nx(1)
 
     ! get the values of f and x
@@ -205,7 +205,7 @@ contains
          xin = x_(nx:1:-1,:),&
          error = err2)
 
-    if(err1 /= FPDE_STATUS_OK .or. err2 /= FPDE_STATUS_OK) then
+    if( any([err1,err2] /= FPDE_STATUS_OK ) ) then
        call self%log(FPDE_LOG_ERROR,&
             "Ghost points could not be filled.")
     end if

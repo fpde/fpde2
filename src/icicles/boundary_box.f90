@@ -10,6 +10,7 @@ module class_boundary_box
 
 
   !! @todo add a passive_boundary_box with limited privilages
+  !! @todo use a constructor instead of set_dim
   type, public, extends(platonic) :: boundary_box
      private
      type(iced_boundary), allocatable :: entries(:,:)
@@ -24,39 +25,39 @@ module class_boundary_box
      procedure :: get_dim
      procedure :: set
      procedure :: get
-     procedure :: print
+     ! procedure :: print
 
-     procedure, private :: boundary_box_assignment
+     procedure :: boundary_box_assignment
      generic :: assignment(=) => boundary_box_assignment
-  end type boundary_box
 
-  ! ! constructor
-  ! interface assignment(=)
-  !    module procedure :: boundary_box_assignment
-  ! end interface
+     !! @bug if final method is added it will result in segfaults in a
+     !! call to icicles_wrap%get() due to a bug in ifort 13.0.0
+     !! 20120731, for more details see
+     !! http://software.intel.com/en-us/forums/topic/327918
+  end type boundary_box
 
 contains
 
 
-  subroutine print(self)
-    class(boundary_box), intent(in) :: self
+  ! subroutine print(self)
+  !   class(boundary_box), intent(in) :: self
 
-    integer :: i, side
+  !   integer :: i, side
 
-    if( .not. self%after_init ) return
+  !   if( .not. self%after_init ) return
 
-    do i = 1, self%dim
-       do side = 1, 2
-          associate(ib => self%entries(i,side))
-            print *, trim(ib%get_type())
-            call ib%print()
-            print *, ""
-          end associate
-       end do
-    end do
-    print *, ""
+  !   do i = 1, self%dim
+  !      do side = 1, 2
+  !         associate(ib => self%entries(i,side))
+  !           print *, trim(ib%get_type())
+  !           call ib%print()
+  !           print *, ""
+  !         end associate
+  !      end do
+  !   end do
+  !   print *, ""
 
-  end subroutine print
+  ! end subroutine print
 
 
   subroutine boundary_box_assignment(self, box)
@@ -65,9 +66,8 @@ contains
 
     integer :: i, side
 
-    ! print *, "====== Assignment", box%dim
-
     self%dim = box%dim
+    self%name = box%name
 
     if( .not. box%after_init ) return
 
