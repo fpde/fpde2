@@ -22,7 +22,7 @@ module class_generic_function
      subroutine call_interface(this, solver, error)
        import generic_function
        class(generic_function) :: this
-       class(*), pointer :: solver
+       class(*) :: solver
        integer, optional, intent(out) :: error
      end subroutine call_interface
   end interface

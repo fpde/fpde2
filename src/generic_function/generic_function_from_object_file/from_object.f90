@@ -52,6 +52,10 @@ module class_generic_function_from_object
   end type generic_function_from_object
 
 
+  interface generic_function_from_object
+     module procedure :: gffo_constructor
+  end interface generic_function_from_object
+
 
   interface
 
@@ -83,9 +87,51 @@ module class_generic_function_from_object
 
 contains
 
+  function gffo_constructor(lib, func, error) result(gffo)
+    character(len=*), intent(in) :: lib, func
+    integer, optional, intent(out) :: error
+
+    type(generic_function_from_object), pointer :: gffo
+
+    type(c_funptr) :: cfun
+
+    allocate(gffo)
+
+    if(present(error)) error = FPDE_STATUS_ERROR
+
+    gffo%name = "generic_function"
+    gffo%type = "generic_function_from_object_file"
+
+    gffo%handle = dlopen(trim(lib)//c_null_char, RTLD_NOW)
+
+    if(.not. c_associated(gffo%handle)) then
+       call gffo%log(FPDE_LOG_ERROR,&
+       "Couldn't open library ["//trim(lib)//"]")
+       call gffo%log(FPDE_LOG_ERROR,&
+       "dlerror: "//c_f_string(dlerror()))
+       return
+    end if
+
+    cfun = dlsym(gffo%handle, trim(func)//c_null_char)
+
+    if(.not. c_associated(cfun)) then
+       call gffo%log(FPDE_LOG_ERROR,&
+       "Couldn't open function ["//trim(func)//"]")
+       call gffo%log(FPDE_LOG_ERROR,&
+       "dlerror: "//c_f_string(dlerror()))
+       return
+    end if
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    call c_f_procpointer(cfun, gffo%fun)
+
+  end function gffo_constructor
+
+
   subroutine call(this, solver, error)
     class(generic_function_from_object) :: this
-    class(*), pointer :: solver
+    class(*) :: solver
     integer, optional, intent(out) :: error
 
     if(present(error)) error = FPDE_STATUS_OK
@@ -100,18 +146,18 @@ contains
 
   end subroutine call
 
+
   subroutine from_lua(p, l, error)
     class(generic_function_from_object) :: p
     type(flu) :: l
     integer, optional, intent(out) :: error
 
     character(len=NAME_LEN) :: libname, funcname
-    type(c_funptr) :: cfun
+    type(generic_function_from_object) :: gffo
     integer :: err
 
+    if(present(error)) error = FPDE_STATUS_ERROR
     call p%platonic%from_lua(l)
-    if( p%name == "" ) p%name = "generic_function"
-    p%type = "generic_function_from_object_file"
 
     call flu_get_atomic(l,&
          char  = libname,&
@@ -135,32 +181,16 @@ contains
        return
     end if
 
-    p%handle = dlopen(trim(libname)//c_null_char, RTLD_NOW)
+    gffo = generic_function_from_object(&
+         lib = libname, func = funcname)
 
-    if(.not. c_associated(p%handle)) then
-       call p%log(FPDE_LOG_ERROR,&
-       "Couldn't open library ["//trim(libname)//"]")
-       call p%log(FPDE_LOG_ERROR,&
-       "dlerror: "//c_f_string(dlerror()))
-       if(present(error)) error = FPDE_STATUS_ERROR
-       return
-    end if
-
-    cfun = dlsym(p%handle, trim(funcname)//c_null_char)
-    if(.not. c_associated(cfun)) then
-       call p%log(FPDE_LOG_ERROR,&
-       "Couldn't open function ["//trim(funcname)//"]")
-       call p%log(FPDE_LOG_ERROR,&
-       "dlerror: "//c_f_string(dlerror()))
-       if(present(error)) error = FPDE_STATUS_ERROR
-       return
-    end if
-
-    call c_f_procpointer(cfun, p % fun)
+    p%handle = gffo%handle
+    p%fun => gffo%fun
 
     if(present(error)) error = FPDE_STATUS_OK
 
   end subroutine from_lua
+
 
   subroutine free(p, error)
     class(generic_function_from_object) :: p
