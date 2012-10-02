@@ -8,6 +8,45 @@
 !!
 !!
 
+module class_icicles_user_pointer_
+
+  use class_icicles_user_
+
+  private
+
+  type, public :: icicles_ptr
+     private
+     class(icicles_user), pointer :: val_
+   contains
+     procedure :: val
+  end type icicles_ptr
+
+
+  interface icicles_ptr
+     module procedure :: ip_constructor
+  end interface icicles_ptr
+
+contains
+
+  function ip_constructor(val) result(r)
+    class(icicles_user), target :: val
+    type(icicles_ptr), pointer :: r
+
+    allocate(r)
+    r%val_ => val
+
+  end function ip_constructor
+
+  function val(self)
+    class(icicles_ptr), intent(in) :: self
+    class(icicles_user), pointer :: val
+    val => self%val_
+  end function val
+
+
+end module class_icicles_user_pointer_
+
+
 module class_generic_function_from_object_interfaces
 
   abstract interface
@@ -23,6 +62,7 @@ end module class_generic_function_from_object_interfaces
 
 module class_generic_function_from_object
 
+  use class_icicles_user_
   use flu_module
   use flu_get_module
   use class_generic_function
@@ -130,19 +170,22 @@ contains
 
 
   subroutine call(this, solver, error)
+    use class_icicles_user_pointer_
     class(generic_function_from_object) :: this
-    class(*) :: solver
+    class(icicles_user), target :: solver
     integer, optional, intent(out) :: error
+
+    if(present(error)) error = FPDE_STATUS_ERROR
+
+    if( .not. associated(this%fun) ) then
+       call this%log(FPDE_LOG_ERROR,&
+            "call(): function pointer is null.")
+       return
+    end if
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    if( associated(this%fun) ) then
-       call this % fun(c_loc(solver))
-    else
-       call this%log(FPDE_LOG_ERROR,&
-       "Call error: function pointer is null")
-       if(present(error)) error = FPDE_STATUS_ERROR
-    end if
+    call this%fun(c_loc(icicles_ptr(val=solver)))
 
   end subroutine call
 

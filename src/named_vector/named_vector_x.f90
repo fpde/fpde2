@@ -1,11 +1,11 @@
 module class_named_vector_x
 
-  use class_named_vector_initial
+  use class_named_vector_implementation_
   use class_generic_function
 
   private
 
-  type, public, extends(named_vector_initial) :: named_vector_x
+  type, public, extends(named_vector_implementation) :: named_vector_x
      private
   end type named_vector_x
 
@@ -25,8 +25,8 @@ contains
 
     allocate(r)
 
-    r%named_vector_initial&
-         = named_vector_initial( &
+    r%named_vector_implementation&
+         = named_vector_implementation( &
          name = name,&
          shape = shape,&
          initial = initial)

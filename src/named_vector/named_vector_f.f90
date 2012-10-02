@@ -1,110 +1,65 @@
 module class_named_vector_f
 
+  use class_icicles_user_
   use class_named_vector_user_
-  use class_named_vector_initial
   use class_named_vector_implementation_
-  use class_boundary_box_
-  use class_generic_function
 
   private
 
-
-  type :: d_ptr
-     integer, allocatable :: alpha(:)
-     class(named_vector_user), pointer :: val => null()
-  end type d_ptr
-
-
-  type, public, extends(named_vector_initial) :: named_vector_f
+  type, public, abstract, extends(named_vector_implementation) :: named_vector_f
      private
-     type(boundary_box), pointer :: box => null()
-     type(d_ptr), pointer :: derivatives(:) => null()
    contains
-     procedure :: boundary
-     procedure :: derivative
+     procedure(dx_i), deferred                     :: dx
+     ! procedure(available_dx_i), deferred           :: available_dx
+     procedure(dt_i), deferred                     :: dt
+     procedure(boundary_param_i), deferred         :: boundary_param
+     procedure(num_boundary_param_i), deferred     :: num_boundary_param
+     procedure(update_boundary_param_i ), deferred :: update_boundary_param
   end type named_vector_f
 
+  interface
 
-  interface named_vector_f
-     module procedure :: nvf_constructor
-  end interface named_vector_f
+     function boundary_param_i(self, var, side, param)
+       import named_vector_f, named_vector_user
+       class(named_vector_f) :: self
+       integer, intent(in) :: var, side, param
 
-
-contains
-
-  function nvf_constructor(name, shape, initial, derivatives, boundary) result(r)
-    character(len=*), intent(in) :: name
-    integer, intent(in) :: shape(:)
-    class(generic_function), intent(in), target :: initial
-    integer, intent(in), optional :: derivatives(:,:)
-    class(boundary_box), target, optional :: boundary
-
-    type(named_vector_f), pointer :: r
-
-    integer :: i
-
-    allocate(r)
-
-    r%named_vector_initial&
-         = named_vector_initial(&
-         name = name, &
-         shape = shape,&
-         initial = initial )
-
-    if( present(boundary) ) then
-       r%box => boundary
-    end if
-
-    if( present(derivatives) ) then
-
-       allocate(r%derivatives(size(derivatives,2)))
-
-       associate(d => r%derivatives)
-         do i = 1, size(derivatives,2)
-
-            d(i)%val => named_vector_implementation("d",shape)
-            d(i)%alpha = derivatives(:,i)
-
-         end do
-       end associate
-
-    end if
+       class(named_vector_user), pointer :: boundary_param_i
+     end function boundary_param_i
 
 
-  end function nvf_constructor
+     function num_boundary_param_i(self, var, side)
+       import named_vector_f, named_vector_user
+       class(named_vector_f) :: self
+       integer, intent(in) :: var, side
+
+       integer :: num_boundary_param_i
+     end function num_boundary_param_i
 
 
-  function derivative(self, alpha)
-    class(named_vector_f) :: self
-    integer, intent(in) :: alpha(:)
+     function dx_i(self, alpha)
+       import named_vector_f, named_vector_user
+       class(named_vector_f) :: self
+       integer, intent(in) :: alpha(:)
 
-    class(named_vector_user), pointer :: derivative
-
-    integer :: i
-
-    derivative => null()
-
-    associate( d => self%derivatives )
-      do i = 1, size(d)
-         if( all(d(i)%alpha == alpha) ) then
-            derivative => d(i)%val
-            return
-         end if
-      end do
-    end associate
-
-  end function derivative
+       class(named_vector_user), pointer :: dx_i
+     end function dx_i
 
 
-  function boundary(self, var, dir, param)
-    class(named_vector_f) :: self
-    integer, intent(in) :: var, dir, param
+     function dt_i(self)
+       import named_vector_f, named_vector_user
+       class(named_vector_f) :: self
 
-    class(named_vector_user), pointer :: boundary
+       class(named_vector_user), pointer :: dt_i
+     end function dt_i
 
-    boundary => null()
 
-  end function boundary
+     subroutine update_boundary_param_i(self, ic)
+       import named_vector_f, icicles_user
+       class(named_vector_f) :: self
+       class(icicles_user), target :: ic
+     end subroutine update_boundary_param_i
 
+  end interface
 
 end module class_named_vector_f

@@ -10,6 +10,7 @@
 module class_generic_function
 
   use class_platonic
+  use class_icicles_user_
 
   private
 
@@ -20,9 +21,9 @@ module class_generic_function
 
   interface
      subroutine call_interface(this, solver, error)
-       import generic_function
+       import generic_function, icicles_user
        class(generic_function) :: this
-       class(*) :: solver
+       class(icicles_user), target :: solver
        integer, optional, intent(out) :: error
      end subroutine call_interface
   end interface

@@ -1,6 +1,8 @@
 module class_named_vector_implementation_
 
   use class_named_vector_
+  use class_generic_function
+  use class_icicles_user_
 
   private
 
@@ -8,13 +10,16 @@ module class_named_vector_implementation_
      private
      real, pointer :: val(:) => null()
      integer, allocatable :: shape_(:)
+     class(generic_function), pointer :: initial_ => null()
    contains
      procedure :: vec
      procedure :: scal
      procedure :: length
      procedure :: shape
      procedure :: point
+     procedure :: initialize
   end type named_vector_implementation
+
 
   interface named_vector_implementation
      module procedure :: nvi_constructor
@@ -23,16 +28,27 @@ module class_named_vector_implementation_
 
 contains
 
-  function nvi_constructor(name, shape) result(r)
+  function nvi_constructor(name, shape, initial) result(r)
     character(len=*), intent(in) :: name
-    integer, intent(in) :: shape(:)
+    integer, intent(in), optional :: shape(:)
+    class(generic_function), intent(in), target, optional :: initial
 
     type(named_vector_implementation), pointer :: r
 
     allocate(r)
 
     r%name = trim(name)
-    r%shape_ = shape
+
+    if( present(shape) ) then
+       r%shape_ = shape
+    else
+       r%shape_ = [integer::]
+    end if
+
+    if( present(initial) ) then
+       r%initial_ => initial
+    end if
+
   end function nvi_constructor
 
 
@@ -71,5 +87,17 @@ contains
     self%val => v(1:len)
 
   end subroutine point
+
+
+  subroutine initialize(self, ic)
+    class(named_vector_implementation) :: self
+    class(icicles_user) :: ic
+
+    if( associated(self%initial_) ) then
+       call self%initial_%call(ic)
+    end if
+  end subroutine initialize
+
+
 
 end module class_named_vector_implementation_

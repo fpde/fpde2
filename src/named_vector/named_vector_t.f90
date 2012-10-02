@@ -1,11 +1,11 @@
 module class_named_vector_t
 
   use class_generic_function
-  use class_named_vector_initial
+  use class_named_vector_implementation_
 
   private
 
-  type, public, extends(named_vector_initial) :: named_vector_t
+  type, public, extends(named_vector_implementation) :: named_vector_t
      private
      real :: tmax_ = 1.0
    contains
@@ -29,7 +29,7 @@ contains
 
     allocate(r)
 
-    r%named_vector_initial = named_vector_initial(&
+    r%named_vector_implementation = named_vector_implementation(&
          name = name, initial = initial, shape = [integer::])
 
     r%tmax_ = tmax

@@ -132,8 +132,6 @@ contains
     ! copy values back to icicles
     do i = 1, nd
        call icw%get(icw%derivative_name(fname,alpha2(:,i)), vec = df1)
-       !dir$ ivdep
-       !dir$ vector always
        do j = 1, nx
           df1(j) = df(gp+j,1)
        end do
