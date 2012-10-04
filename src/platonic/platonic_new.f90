@@ -20,12 +20,12 @@ module platonic_from_lua_module
 
   interface
      !> Interface to platonic_new in platonic_new_module
-     function platonic_new_module_mp_platonic_new(id, error) result(p)
+     function platonic_new_module_MP_platonic_new(id, error) result(p)
        import platonic
        character(len=*), intent(in) :: id
        integer, optional, intent(out) :: error
        class(platonic), pointer :: p
-     end function platonic_new_module_mp_platonic_new
+     end function platonic_new_module_MP_platonic_new
   end interface
 
 contains

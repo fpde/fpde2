@@ -49,11 +49,20 @@ contains
 
     ders = self%get_calculable_derivatives()
 
+    !! @todo, remove error reporting? It only makes the code
+    !! unreadable and diff should be wrapped in a high level function anyway
     if( any( k > ders(:,1) ) ) then
        call self%log(FPDE_LOG_ERROR,&
-            "Too large rank of derivative to calculate with this mesh")
+            "diff(): Too large rank of derivative to calculate with this mesh")
        return
     end if
+
+    if( size(k) > size(df,2) ) then
+       call self%log(FPDE_LOG_ERROR,&
+            "diff(): Size of df does not match k, aborting.")
+       return
+    end if
+
 
     n = size(f)
     h2 = 2.*(x(2) - x(1))
@@ -68,9 +77,9 @@ contains
 
           df(1,kk) = (f(2)-f(1  ))/(x(2)-x(1))
           df(n,kk) = (f(n)-f(n-1))/(x(n)-x(n-1))
+
        end if
     end do
-
 
   end subroutine diff
 

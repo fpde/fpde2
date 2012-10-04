@@ -112,4 +112,14 @@ contains
   end function join
 
 
+  pure function itoa(i)
+    integer, intent(in) :: i
+
+    character(len=:), allocatable :: itoa
+
+    character(len=100) :: temp
+    write(temp, '(g0)') i
+    itoa = trim(adjustl(temp))
+  end function itoa
+
 end module helper_module

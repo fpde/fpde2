@@ -22,4 +22,5 @@ module class_icicles_user_
 
   end interface
 
+
 end module class_icicles_user_
