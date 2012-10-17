@@ -1,0 +1,127 @@
+module class_mesh_box
+
+  use helper_module
+  use class_mesh
+  use class_platonic
+  use constants_module
+
+  private
+
+
+  type :: entry_m
+     private
+     integer, allocatable :: var(:)
+     class(mesh), pointer :: m => null()
+  end type entry_m
+
+
+  type :: entry_f
+     private
+     !> Name of dependent variable
+     character(len=:), allocatable :: fname
+     type(entry_m), allocatable :: meshes(:)
+   contains
+     ! procedure :: add
+     ! procedure :: get
+  end type entry_f
+
+
+  type, public, extends(platonic) :: mesh_box
+     private
+     type(entry_f), allocatable :: fun(:)
+   contains
+     procedure :: set_spatial
+     procedure :: init
+     procedure :: add
+     ! procedure :: get
+  end type mesh_box
+
+contains
+
+  subroutine set_spatial(self, spatial)
+    class(mesh_box) :: self
+    character(len=*) :: spatial(:)
+
+    self%spatial = spatial
+  end subroutine set_spatial
+
+
+  subroutine init(p, error)
+    class(mesh_box), target :: p
+    integer, optional, intent(out) :: error
+    if(present(error)) error = FPDE_STATUS_OK
+    p%name = "mesh_box("//join(p%spatial,",")//")"
+    allocate(p%fun(0))
+  end subroutine init
+
+
+  subroutine add(self, fname, xname, m)
+    class(mesh_box) :: self
+    character(len=*), intent(in) :: fname, xname(:)
+    class(mesh), target :: m
+
+    type(entry_m) :: em
+    type(entry_m), allocatable :: ems(:)
+    type(entry_f) :: ef
+    type(entry_f), allocatable :: efs(:)
+    integer :: i
+    logical :: exists
+
+    exists = .false.
+    do i = 1, size(self%fun)
+       if( self%fun(i)%fname == fname ) then
+          exists = .true.
+          exit
+       end if
+    end do
+
+    if( .not. exists ) then
+       ! create new entry_f
+       allocate(ef%meshes(0))
+       ef%fname = fname
+       efs = [self%fun, ef]
+       call move_realloc(self%fun, efs)
+       i = size(self%fun)
+    end if
+
+    ! at this point, i is set to the position corresponding to
+    ! self%fun(i)%fname == fname
+
+    ! we create a new entry_m
+    allocate(em%var(size(var)))
+    em%m => m
+    allocate(var(size(xname)))
+    do i = 1, size(xname)
+       var(i) = findloc_first(self%spatial, xname(i))
+    end do
+    em%var = var
+
+    ! we add em to the list
+    ems = [self%fun(i)%meshes, em]
+    call move_realloc(self%fun(i)%meshes,ems)
+
+  end subroutine add
+
+
+  subroutine get(self, fname, var, order, m, error)
+    class(mesh_box) :: self
+    character(len=*), intent(in) :: fname
+    character(len=*), intent(out) :: var
+    class(mesh), pointer, intent(out) :: m
+    integer, intent(out), optional :: error
+
+    integer :: i, j
+
+    outer: do i = 1, size(self%fun)
+       if( self%fun == fname ) then
+          do j = 1, size(self%fun(i)%meshes)
+             associate(m => self%fun(i)%meshes(j))
+             if( any(m%var) == var)
+          end do
+       end if
+    end do outer
+
+  end subroutine get
+
+
+end module class_mesh_box

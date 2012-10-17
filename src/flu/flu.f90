@@ -21,16 +21,39 @@ module flu_module
   use c_lua_module
   use c_helper_module
   use logger_module
+  use constants_module
 
+#define luajit
+! #define lua51
+  ! #define lua52
+
+#ifdef luajit
+#define lua51
+#endif
 
   !> lua constants, copied from lua.h
-  integer, parameter :: &
+  integer(c_int), parameter :: &
        C_LUA_MULTRET = -1,&
        C_LUAI_MAXSTACK = 1000000,&
        C_LUAI_FIRSTPSEUDOINDEX = -C_LUAI_MAXSTACK - 1000,&
-       C_LUA_REGISTRYINDEX = C_LUAI_FIRSTPSEUDOINDEX
+       C_LUA_GLOBALSINDEX = -10002
+
+#ifdef luajit
+  integer(c_int), parameter :: C_LUA_REGISTRYINDEX = -10000
+#else
+  integer(c_int), parameter :: C_LUA_REGISTRYINDEX = C_LUA_FIRSTPSEUDOINDEX
+#endif
+
+  !> fortran version of the above parameters
+  integer, parameter :: &
+       LUA_MULTRET           = int(C_LUA_MULTRET),           &
+       LUAI_MAXSTACK         = int(C_LUAI_MAXSTACK),         &
+       LUAI_FIRSTPSEUDOINDEX = int(C_LUAI_FIRSTPSEUDOINDEX), &
+       LUA_REGISTRYINDEX     = int(C_LUA_REGISTRYINDEX),     &
+       LUA_GLOBALSINDEX      = int(C_LUA_GLOBALSINDEX)
 
   !> lua types, copied from lua.h
+  !> @todo [0] change C_LUA_ prefix to LUA_
   integer, parameter ::&
        C_LUA_TNONE          =(-1),&
        C_LUA_TNIL           =0,&
@@ -129,13 +152,12 @@ contains
     luaL_loadstring = c_luaL_loadstring(l%lstate,str//c_null_char)
   end function luaL_loadstring
 
-
+#ifdef lua52
   function lua_pcallk(l, nargs, nresults, errfunc, ctx, k)
     integer :: lua_pcallk
     type(flu) :: l
     type(c_ptr) :: k
     integer :: nargs, nresults, errfunc, ctx
-    character(len=1000) :: msg
 
     lua_pcallk = c_lua_pcallk(&
          l%lstate, &
@@ -145,14 +167,8 @@ contains
          int(ctx,c_int),&
          k)
 
-   if(lua_pcallk /= LUA_OK) then
-      call lua_tostring(l,-1,msg)
-      call l%log(FPDE_LOG_ERROR,"Unable to call lua function")
-      call l%log(FPDE_LOG_ERROR,"Lua error:[" // trim(msg) // "]")
-   end if
-
-  end function lua_pcallk
-
+   end function lua_pcallk
+#endif
 
   subroutine lua_getfield(l,index, name)
     type(flu) :: l
@@ -173,14 +189,24 @@ contains
   subroutine lua_getglobal(l, name)
     type(flu) :: l
     character(len=*) :: name
+#ifdef lua51
+    call c_lua_getfield(l%lstate, C_LUA_GLOBALSINDEX, name//c_null_char)
+#endif
+#ifdef lua52
     call c_lua_getglobal(l%lstate, trim(name)//c_null_char)
+#endif
   end subroutine lua_getglobal
 
 
   subroutine lua_setglobal(l, name)
     type(flu) :: l
     character(len=*) :: name
-    call c_lua_setglobal(l%lstate, name//c_null_char)
+#ifdef lua51
+    call c_lua_setfield(l%lstate, C_LUA_GLOBALSINDEX, name//c_null_char)
+#endif
+#ifdef lua52
+    call c_lua_setglobal(l%lstate, trim(name)//c_null_char)
+#endif
   end subroutine lua_setglobal
 
 
@@ -196,6 +222,26 @@ contains
     character(len=*) :: name
     call c_lua_setlocal(l%lstate, name//c_null_char)
   end subroutine lua_setlocal
+
+
+  function lua_setfenv(l,index)
+    type(flu) :: l
+    integer :: index, lua_setfenv
+    lua_setfenv = c_lua_setfenv(l%lstate, int(index,c_int))
+  end function lua_setfenv
+
+  subroutine lua_createtable(l,narr,nrec)
+    type(flu) :: l
+    integer :: narr, nrec
+    call c_lua_createtable(l%lstate,&
+         int(narr,c_int),int(nrec,c_int))
+  end subroutine lua_createtable
+
+  subroutine lua_newtable(l)
+    type(flu) :: l
+    call lua_createtable(l,0,0)
+  end subroutine lua_newtable
+
 
   ! lua_tolstring is missing, but it was used only in lua_tostring
   ! function, which is implemented below instead of lua_tolstring
@@ -247,13 +293,6 @@ contains
   end function lua_type
 
 
-  subroutine lua_len(l,index)
-    type(flu) :: l
-    integer :: index
-    call c_lua_len(l%lstate, int(index,c_int))
-  end subroutine lua_len
-
-
   !> Tries to load a file and log any lua errors
   !!
   !! @param filename should be already trimmed
@@ -267,10 +306,17 @@ contains
     character(len=*) :: filename
     character(len=1000) :: msg
 
+#ifdef lua52
     retval = c_luaL_loadfilex_ptr(&
          l%lstate,&
          trim(filename)//c_null_char,&
          c_null_ptr)
+#endif
+#ifdef lua51
+    retval = c_luaL_loadfile_ptr(&
+         l%lstate,&
+         trim(filename)//c_null_char)
+#endif
 
     if( retval == LUA_OK ) then
        luaL_loadfile = .true.
@@ -298,11 +344,31 @@ contains
   end subroutine lua_rawget
 
 
+  subroutine lua_rawgeti(l,index,n)
+    type(flu) :: l
+    integer :: index, n
+    call c_lua_rawgeti(l%lstate, int(index,c_int), int(n,c_int))
+  end subroutine lua_rawgeti
+
+
+  function luaL_ref(l, index)
+    type(flu) :: l
+    integer :: index
+    integer :: luaL_ref
+    luaL_ref = c_luaL_ref(l%lstate, int(index,c_int))
+  end function luaL_ref
+
+
   function lua_rawlen(l,index)
     type(flu) :: l
     integer :: index
     integer :: lua_rawlen
+#ifdef lua52
     lua_rawlen = c_lua_rawlen(l%lstate, int(index,c_int))
+#endif
+#ifdef lua51
+    lua_rawlen = c_lua_objlen(l%lstate, int(index,c_int))
+#endif
   end function lua_rawlen
 
 
@@ -317,7 +383,16 @@ contains
     type(flu) :: l
     integer :: index
     integer :: lua_absindex
+#ifdef lua52
     lua_absindex = c_lua_absindex(l%lstate,int(index,c_int))
+#endif
+#ifdef lua51
+    if( index < 0 ) then
+       lua_absindex = lua_gettop(l) + 1 + index
+    else
+       lua_absindex = index
+    end if
+#endif
   end function lua_absindex
 
 
@@ -327,6 +402,14 @@ contains
     integer :: index
     lua_topointer = c_lua_topointer(l%lstate,int(index,c_int))
   end function lua_topointer
+
+
+  function lua_toprocpointer(l,index)
+    type(flu) :: l
+    type(c_funptr) :: lua_toprocpointer
+    integer :: index
+    lua_toprocpointer = c_lua_toprocpointer(l%lstate,int(index,c_int))
+  end function lua_toprocpointer
 
 
   subroutine lua_pushinteger(l,i)
@@ -363,7 +446,12 @@ contains
   function lua_tointeger(l, idx)
     type(flu) :: l
     integer :: idx, lua_tointeger
+#ifdef lua52
     lua_tointeger = c_lua_tointegerx(l%lstate, int(idx,c_int),c_null_ptr)
+#endif
+#ifdef lua51
+    lua_tointeger = c_lua_tointeger(l%lstate, int(idx,c_int))
+#endif
   end function lua_tointeger
 
 
@@ -385,7 +473,12 @@ contains
     type(flu) :: l
     integer :: idx
     real(8) :: lua_tonumber
+#ifdef lua52
     lua_tonumber = c_lua_tonumberx(l%lstate, int(idx,c_int),c_null_ptr)
+#endif
+#ifdef lua51
+    lua_tonumber = c_lua_tonumber(l%lstate, int(idx,c_int))
+#endif
   end function lua_tonumber
 
 
@@ -420,6 +513,13 @@ contains
     integer :: lua_gettop
     lua_gettop = c_lua_gettop(l%lstate)
   end function lua_gettop
+
+
+  subroutine lua_replace(l,index)
+    type(flu) :: l
+    integer :: index
+    call c_lua_replace(l%lstate,int(index,c_int))
+  end subroutine lua_replace
 
 
   subroutine luaL_openlibs(l)
@@ -532,7 +632,7 @@ contains
     luaL_dofile = .false.
 
     if( luaL_loadfile(l,trim(filename)) ) then
-       pcall = lua_pcall(l,0,C_LUA_MULTRET,0)
+       pcall = lua_pcall(l,0,LUA_MULTRET,0)
        if( pcall == LUA_OK ) then
           luaL_dofile = .true.
           return
@@ -552,7 +652,7 @@ contains
     luaL_dostring = .false.
 
     if( luaL_loadstring(l,trim(str)) == LUA_OK ) then
-       pcall = lua_pcall(l,0,C_LUA_MULTRET,0)
+       pcall = lua_pcall(l,0,LUA_MULTRET,0)
        if( pcall == LUA_OK ) then
           luaL_dostring = .true.
           return
@@ -566,7 +666,30 @@ contains
     type(flu) :: l
     integer :: lua_pcall
     integer :: n, r, f
-    lua_pcall = lua_pcallk(l, n, r, f, 0, c_null_ptr)
+
+    character(len=1000) :: msg
+
+#ifdef lua52
+    lua_pcall = c_lua_pcallk(l%lstate,&
+         int(n,c_int),&
+         int(r,c_int),&
+         int(f,c_int),&
+         int(0,c_int),&
+         c_null_ptr)
+#endif
+#ifdef lua51
+    lua_pcall = c_lua_pcall(l%lstate,&
+         int(n,c_int),&
+         int(r,c_int),&
+         int(f,c_int))
+#endif
+
+    if(lua_pcall /= LUA_OK) then
+       call lua_tostring(l,-1,msg)
+       call l%log(FPDE_LOG_ERROR,"Unable to call lua function")
+       call l%log(FPDE_LOG_ERROR,"Lua error:[" // trim(msg) // "]")
+    end if
+
   end function lua_pcall
 
   function lua_next(l,index)

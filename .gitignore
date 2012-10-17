@@ -1,2 +1,6 @@
 build/*
+example/*
+config/*
+docs/*
+*bkp
 *~

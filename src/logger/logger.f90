@@ -25,14 +25,12 @@ module logger_module
      integer :: status = 0       !0 means OK!
      character(len=NAME_LEN) :: name = "" !empty name should produce a warning
    contains
-     ! procedure :: init
-     ! procedure :: free
      procedure, non_overridable :: log
   end type named
 
 
   type, private :: logger_singleton
-     integer :: log_level = 1
+     integer :: log_level = FPDE_LOG_DEBUG
      integer :: msg_id = 1
      character(len=FPDE_PATH_LEN) :: path = "log/" !@todo what if this dir do not exists?
    contains
@@ -84,7 +82,9 @@ contains
          lvl_text = "?"
       end select
 
-      call get_timestamp(timestamp)
+      !! @bug somehow this coused problems in class_icicles: get()
+      !! (icicles.f90), it's not needed anyway.
+      ! call get_timestamp(timestamp)
 
       write(text,'("[",i6,"] ",A15,"[",A1,"] ",A)')&
            logger%msg_id,&

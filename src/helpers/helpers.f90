@@ -1,5 +1,7 @@
 module helper_module
 
+  use constants_module
+
   public
 
   !> findloc_() tries to emulate the behavior of Fortran 2008 finfloc
@@ -11,6 +13,7 @@ module helper_module
   end interface findloc_
 
   interface findloc_first
+     module procedure findloc_first_logical
      module procedure findloc_first_character
   end interface findloc_first
 
@@ -42,7 +45,7 @@ contains
     n = count(array .eqv. val)
     allocate(r(n))
 
-    do i = 1, size(array)
+    do i = lbound(array,1), ubound(array,1)
        if( array(i) .eqv. val ) then
           r(j) = i
           j = j + 1
@@ -51,7 +54,29 @@ contains
 
   end function findloc_logical
 
-  function findloc_first_character ( array, val ) result(i)
+
+  function findloc_first_logical ( array, val ) result(i)
+    logical, intent(in) :: array(:)
+    logical, optional, intent(in) :: val
+    integer :: i
+
+    logical :: v = .true.
+
+    if(present(val)) v = val
+
+    do i = lbound(array,1), ubound(array,1)
+       if( array(i) .eqv. v ) return
+    end do
+
+    ! produce out of bound value in case when the searched value is
+    ! not found
+    i = size(array) + 1
+
+  end function findloc_first_logical
+
+
+  !> @todo [0] implement as a call to findloc_first_logical
+  pure function findloc_first_character ( array, val ) result(i)
     character(len=*), intent(in) :: array(:), val
     integer :: i
 
@@ -59,9 +84,42 @@ contains
        if( array(i) == val ) return
     end do
 
-    ! produce out of bound value in case of error
-    i = i + 1
+    ! produce out of bound value in case when the searched value is
+    ! not found
+    i = size(array) + 1
 
   end function findloc_first_character
+
+
+  pure function join(chars,separator) result(r)
+    character(len=*), intent(in) :: chars(:), separator
+    character(len=:), allocatable :: r
+
+    integer :: i, n
+
+    n = size(chars)
+    if( n == 0 ) then
+       r = ""
+       return
+    else
+       r = trim(chars(1))
+       do i = 2, n
+          if( chars(i) == "" ) return
+          r = trim(r) // trim(separator) // trim(chars(i))
+       end do
+    end if
+
+  end function join
+
+
+  pure function itoa(i)
+    integer, intent(in) :: i
+
+    character(len=:), allocatable :: itoa
+
+    character(len=100) :: temp
+    write(temp, '(g0)') i
+    itoa = trim(adjustl(temp))
+  end function itoa
 
 end module helper_module

@@ -1,0 +1,91 @@
+module class_ghost1d
+
+  use class_ghost
+  use class_icicles
+  use class_icicles_wrap
+  use class_mesh
+  use class_mesh_box
+  use class_boundary_box
+  use class_boundary
+  use constants_module
+
+  private
+
+  type, public, extends(ghost) :: ghost1d
+     private
+     real, allocatable :: x(:,:)
+     real, allocatable :: f(:,:)
+   contains
+     procedure :: init
+     ! procedure :: update_derivatives
+  end type ghost1d
+
+contains
+
+  subroutine init(p, error)
+    class(ghost1d), target :: p
+    integer, optional, intent(out) :: error
+    if(present(error)) error = FPDE_STATUS_OK
+    p%name = "ghost1d"
+    allocate(p%x(1,0), p%f(1,0))
+  end subroutine init
+
+
+  subroutine update_derivatives(self, icw, fname, alpha2, mb, error)
+    class(ghost1d), target :: self
+    type(icicles_wrap) :: icw
+    type(mesh_box) :: mb
+    character(len=*), intent(in) :: alpha2(:,:), fname
+    integer, optional, intent(out) :: error
+
+    ! character(len=:), allocatable :: spatial(:), xname
+    ! integer, allocatable :: ndx(:), nd, gp, nx
+    ! type(boundary_box), pointer :: bbox
+    ! class(boundary), pointer :: b
+    ! class(mesh), pointer :: m
+    ! real, pointer :: in(:), xval(:), fval(:), x(:), f(:)
+
+    !! @todo check if size(nx) /= 1
+
+    ! spatial = icw%get_names(icw_spatial)
+    ! xname = spatial(1)
+
+    ! @todo get_mesh
+    ! call self%get_mesh(meshes, fname, xname, m)
+    ! call icw%get(xname,vec = xval)
+    ! call icw%get(fname,vec = fval)
+
+    ! ndx = count(alpha2 == xname, 1)
+    ! nd  = size(alpha2,2)
+    ! nx  = product(icw%get_nx())
+    ! gp = m % ghost_points
+
+    ! if( any(ndx > m%max_derivative) ) then
+    !    if(present(error)) error = FPDE_STATUS_ERROR
+    !    !! @todo log error
+    !    return
+    ! end if
+
+    ! if(size(self%x,2) < 2*gp+nx) then
+    !    deallocate(self%x)
+    !    allocate(self%x(1,2*gp+nx))
+    ! end if
+
+    ! if(size(self%f,2) < 2*gp+nx) then
+    !    deallocate(self%f)
+    !    allocate(self%f(1,2*gp+nx))
+    ! end if
+
+    ! ! fill in the interior points
+    ! x => self%x
+    ! f => self%f
+    ! x(gp+1:gp+nx) = xval
+    ! f(gp+1:gp+nx) = fval
+
+    ! ! fill in the ghost points for x
+    ! x(1:gp) = x(gp+1) - (x(gp+1:gp+1+gp)-x(gp+1))
+    ! x(gp+nx+1:2*gp+nx) = x(gp+nx) - (x(gp+nx+1:nx+1:-1)-x(gp+nx))
+
+  end subroutine update_derivatives
+
+end module class_ghost1d

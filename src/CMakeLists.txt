@@ -16,6 +16,7 @@ set_source_files_properties(${src_sources90} PROPERTIES COMPILE_FLAGS
 # set objects for static library
 add_library(project_lib_shared STATIC ${src_sources77} ${src_sources90})
 set_target_properties(project_lib_shared PROPERTIES OUTPUT_NAME ${project_lib_name} )
+target_link_libraries(project_lib_shared /home/pawel/Sources/luajit-2.0/src/libluajit.so)
 
 # build shared library out of static one
 # @todo check linking with -ipo -fast etc.
