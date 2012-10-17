@@ -45,6 +45,15 @@ module class_ode_system
          class(*) :: params
          integer, optional :: status
       end subroutine jac_interface
+
+      subroutine mma_interface( t, y, dydt, params, status )
+         real, intent(in) :: t
+         real, pointer, contiguous, intent(in) :: y(:)
+         real, pointer, contiguous, intent(out) :: dydt(:)
+         class(*) :: params
+         integer, optional :: status
+      end subroutine mma_interface
+
    end interface
 
    type, public, extends(named) :: ode_system
@@ -53,6 +62,8 @@ module class_ode_system
       procedure(fun_interface), pointer, nopass :: fun => null()
       !> ODE differential equation jacobian function pointer
       procedure(jac_interface), pointer, nopass :: jac => null()
+      !> ODE differential equation mass matrix function pointer
+      procedure(mma_interface), pointer, nopass :: mass_matrix => null()
       !> dimension of the system (number of equations)
       integer :: dim = 0
       !> ODE parameters required to calculate the right side and jacobian
@@ -89,13 +100,15 @@ contains
       sys % dim = dim
 
       if ( sys % dim .le. 0 ) then
-         call sys%log(FPDE_LOG_ERROR, "ODE system dimension passed in sys%init cannot be <= 0")
+         call sys%log(FPDE_LOG_ERROR, &
+              "ODE system dimension passed in sys%init cannot be <= 0")
       end if
 
       if( associated( fun ) ) then
          sys % fun => fun
       else
-         call sys%log(FPDE_LOG_ERROR, "ODE system no function passed in sys%init")
+         call sys%log(FPDE_LOG_ERROR, &
+              "ODE system no function passed in sys%init")
       end if
 
       if ( present( jac ) .and. associated( jac ) ) then

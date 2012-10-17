@@ -11,8 +11,10 @@
 !!
 module class_ode_stepper
 
+   use constants_module
    use class_platonic
    use class_ode_system
+   use class_ode_step_control
 
    private
 
@@ -32,6 +34,11 @@ module class_ode_stepper
       !> Method order
       integer :: method_order = 0
 
+      !> Linear stability boundary
+      real :: lsb
+      !> Jacobian matrix pointer
+      real, pointer, contiguous  :: J(:,:) !> n x n
+
    contains
 
       !> Applies the stepping function to the system of equations, defined
@@ -45,13 +52,15 @@ module class_ode_stepper
 
       procedure(refine_step), deferred :: refine_step
 
+      procedure :: stiff_test
+
    end type ode_stepper
 
 
    interface
 
-      subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
-         import :: ode_stepper, ode_system
+      subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, c, hold, hnew, accept, error )
+         import :: ode_stepper, ode_system, ode_step_control
          class(ode_stepper), intent(inout) :: this
          class(ode_system), intent(inout) :: sys
          real, intent(in) :: t
@@ -59,6 +68,7 @@ module class_ode_stepper
          real, pointer, contiguous, intent(inout) :: yerr(:)
          real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
          real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+         class(ode_step_control), intent(inout) :: c
          real, intent(in) :: hold
          real, intent(out) :: hnew
          logical, intent(out) :: accept
@@ -84,5 +94,21 @@ module class_ode_stepper
       end subroutine reset
 
    end interface
+
+contains
+
+   subroutine stiff_test( this, sys, y, t, h, lambda, error )
+      class(ode_stepper), intent(inout) :: this
+      class(ode_system), intent(inout) :: sys
+      real, pointer, intent(in) :: y(:)
+      real, intent(in) :: t, h
+      real, intent(out) :: lambda
+      integer, optional, intent(out) :: error
+
+      lambda = 0.0
+
+      if(present(error)) error = FPDE_STATUS_OK
+
+   end subroutine stiff_test
 
 end module class_ode_stepper

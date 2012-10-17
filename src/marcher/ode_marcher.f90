@@ -1,5 +1,5 @@
 !>
-!! @file   ode_marcher.f90n
+!! @file   ode_marcher.f90
 !! @author Maciej Maliborski <maciej.maliborski@gmail.com>
 !! @date   Thu Apr 26 12:54:20 2012
 !!
@@ -24,7 +24,7 @@ module class_ode_marcher
       !> Stepper pointer there will be at least one stepper
       class(ode_stepper), pointer :: s
       !> Step control structure
-      class(ode_step_control), pointer :: c
+      type(ode_step_control) :: c
 
    contains
 

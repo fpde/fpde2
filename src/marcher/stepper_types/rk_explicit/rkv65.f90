@@ -1,6 +1,7 @@
 module class_ode_stepper_rkv65
 
    use constants_module
+   use class_ode_system
    use class_ode_stepper_rk_explicit_abstract
 
    private
@@ -10,10 +11,41 @@ module class_ode_stepper_rkv65
    contains
 
       procedure :: init
+      procedure :: stiff_test
 
    end type ode_stepper_rkv65
 
 contains
+
+   subroutine stiff_test( this, sys, y, t, h, lambda, error )
+      class(ode_stepper_rkv65), intent(inout) :: this
+      class(ode_system), intent(inout) :: sys
+      real, pointer, intent(in) :: y(:)
+      real, intent(in) :: t, h
+      real, intent(out) :: lambda
+      integer, optional, intent(out) :: error
+      !> local variables
+      integer :: err
+      real :: num, den
+      real, parameter :: da(5) = [-627./1720.,44./43.,-5335./5848.,781./4644.,-14828./252195. ]
+
+      err = FPDE_STATUS_OK
+
+      !> \f$ || k_8 - k_6 || \f$
+      num = norm2(this%k(8,:)-this%k(6,:))
+
+      !> \f$ || g_8 - g_6 || \f$
+      this % ytmp = h * ( da(1)*this%k(1,:) + da(2)*this%k(2,:) + &
+           &        da(3)*this%k(3,:) + da(4)*this%k(4,:) + da(5)*this%k(5,:) + &
+           &        this%bt%a(8,6) * this%k(6,:) + this%bt%a(8,7) * this%k(7,:) )
+
+      den = norm2( this%ytmp )
+
+      lambda = num/den
+
+      if(present(error)) error = FPDE_STATUS_OK
+
+   end subroutine stiff_test
 
    subroutine init(p,error)
       class(ode_stepper_rkv65), intent(inout) :: p
@@ -30,6 +62,8 @@ contains
       p % name = "rkv65"
       p % stages = 8
       p % status = FPDE_STATUS_OK ! @todo
+
+      p % lsb = 4.00
 
       call p%ode_stepper_rk_explicit_abstract%init(err)
 

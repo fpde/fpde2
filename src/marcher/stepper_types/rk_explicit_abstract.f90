@@ -5,6 +5,7 @@ module class_ode_stepper_rk_explicit_abstract
    use class_butcher_tableu
    use class_ode_system
    use class_ode_stepper
+   use class_ode_step_control
 
    private
 
@@ -29,7 +30,7 @@ module class_ode_stepper_rk_explicit_abstract
 
 contains
 
-   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
+   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, c, hold, hnew, accept, error )
       class(ode_stepper_rk_explicit_abstract), intent(inout) :: this
       class(ode_system), intent(inout) :: sys
       real, intent(in) :: t
@@ -37,17 +38,70 @@ contains
       real, pointer, contiguous, intent(inout) :: yerr(:)
       real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
       real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+      class(ode_step_control), intent(inout) :: c
       real, intent(in) :: hold
       real, intent(out) :: hnew
       logical, intent(out) :: accept
       integer, optional, intent(out) :: error
+      !> local variables
+      integer :: i, dim, order, err
+      real, parameter :: min_real=epsilon(1.0)
+      real :: rmax, d0, r
 
-      hnew = hold
-      accept = .true.
+      err = FPDE_STATUS_OK
 
-      if ( present( error ) ) then
-         error = FPDE_STATUS_OK
+      !> This method needs the dydt_out vector
+      if( .not. present(dydt_out) ) then
+         err = FPDE_STATUS_ERROR
+         call this%log(FPDE_LOG_ERROR, "refine step needs dydt_out passed")
+      else if ( .not. associated(dydt_out) ) then
+         err = FPDE_STATUS_ERROR
+         call this%log(FPDE_LOG_ERROR, "refine step needs dydt_out associated")
+      else
+         !> Use the step control mechanism form ode_step_control
+         dim = this % dim
+         order = this % method_order
+         rmax = min_real
+
+         do i=1,dim
+            ! Wywolujemy funkcje estymujaca blad, zwracana wartosc
+            ! jest zapisywana do zmiennej d0
+            call c%error_fnc( i, y1(i), dydt_out(i), hold, d0 )
+            r = abs(yerr(i))/abs(d0)
+            rmax = max(r,rmax)
+         end do
+
+         if ( rmax > 1.1 ) then
+            !> Zmniejszamy krok, nie wiecej niz czynnik 5, lecz sfactor
+            !! wicej niz sugeruje skalowanie
+            r = c%sfactor/rmax**(1.0/order)
+            if ( r < 0.2 ) then
+               r = 0.2
+            end if
+            hnew = r*hold;
+            accept = .false. !> blad byl za duzy, nie akceptujemy tego kroku
+            !! sugerujemy mniejszy krok
+            return
+
+         else if ( rmax < 0.5 ) then
+            ! Zwiekszamy krok, nie wiecej niz czynnik 5
+            r = c%sfactor/rmax**(1.0/(order+1))
+            if ( r > 5.0 ) then
+               r = 5.0
+            else if ( r < 1.0 ) then ! sprawdzamy czy sfactor nie spowodowalby zmniejszenia kroku
+               r = 1.0
+            end if
+            hnew = r*hold;
+            accept = .true. !> blad miescil sie w zadanym zakresie, krok zostal zwiekszony
+            return
+         else
+            ! Krok pozostaje bez zmian
+            hnew = hold
+            accept = .true.
+         end if
       end if
+
+      if ( present( error ) ) error = err
 
    end subroutine refine_step
 

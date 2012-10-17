@@ -5,6 +5,7 @@ module class_ode_stepper_rk_implicit_abstract
    use class_butcher_tableu
    use class_ode_system
    use class_ode_stepper
+   use class_ode_step_control
 
    use kronecker_product
    use mkl95_lapack, only : getrf, getrs
@@ -20,7 +21,6 @@ module class_ode_stepper_rk_implicit_abstract
       real, pointer, contiguous :: d(:) !> d = b*A^{-1}
       !> Workspace vectors
       real, pointer, contiguous  :: dfdt(:) !> n
-      real, pointer, contiguous  :: J(:,:) !> n x n
       real, pointer, contiguous :: AI(:,:) !> n*s x n*s
       real, pointer, contiguous :: IhAJ(:,:) !> n*s x n*s !> @todo reduce storage
       real, pointer, contiguous :: Z(:), FZ(:), DZ(:) !> n*s
@@ -35,8 +35,6 @@ module class_ode_stepper_rk_implicit_abstract
       logical :: jac_recompute = .true.
 
       real :: eta_last = 0.0
-      ! real :: dz_norm_last = 0.0
-      ! real :: theta_last = 0.0
 
    contains
 
@@ -51,14 +49,15 @@ module class_ode_stepper_rk_implicit_abstract
 
 contains
 
-   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error )
+   subroutine refine_step( this, sys, t, y0, y1, yerr, dydt_in, dydt_out, c, hold, hnew, accept, error )
       class(ode_stepper_rk_implicit_abstract), intent(inout) :: this
       class(ode_system), intent(inout) :: sys
       real, intent(in) :: t
       real, pointer, contiguous, intent(in) :: y0(:), y1(:)
       real, pointer, contiguous, intent(inout) :: yerr(:)
-      real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
+      real, optional, pointer, contiguous, intent(in) :: dydt_in(:)
       real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+      class(ode_step_control), intent(inout) :: c
       real, intent(in) :: hold
       real, intent(out) :: hnew
       logical, intent(out) :: accept

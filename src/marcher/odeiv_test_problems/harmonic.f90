@@ -7,6 +7,9 @@
 !!
 !! Harmonic oscillator.
 !!
+!! @todo - [] implement analytic solution
+!!       - [] write doc
+!!
 module class_odeiv_harm
 
    use constants_module

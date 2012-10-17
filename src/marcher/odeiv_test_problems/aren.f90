@@ -7,6 +7,9 @@
 !!
 !! Arenstorf orbits - the rescticted three body problem.
 !!
+!! @todo - [] implement jacobian function
+!!       - [] write doc
+!!
 module class_odeiv_aren
 
    use class_odeiv_generic

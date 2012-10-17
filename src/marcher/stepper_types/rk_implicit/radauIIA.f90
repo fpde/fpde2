@@ -5,6 +5,7 @@ module class_ode_stepper_radauIIA
    use class_butcher_tableu
    use class_ode_system
    use class_ode_stepper
+   use class_ode_step_control
    use class_ode_stepper_rk_implicit_abstract
 
    use kronecker_product
@@ -27,7 +28,7 @@ module class_ode_stepper_radauIIA
       integer :: newton_status = FPDE_STATUS_ERROR
       logical :: first_step = .true.
       logical :: last_step_rejected = .false.
-      real :: atol = 1.0e-4, rtol = 1.0e-4
+      ! real :: atol = 1.0e-4, rtol = 1.0e-4
 
       !> predictive controler storage
       real :: last_yerr_norm, last_step_size
@@ -43,7 +44,7 @@ module class_ode_stepper_radauIIA
 
 contains
 
-   subroutine refine_step(this, sys, t, y0, y1, yerr, dydt_in, dydt_out, hold, hnew, accept, error)
+   subroutine refine_step(this, sys, t, y0, y1, yerr, dydt_in, dydt_out, c, hold, hnew, accept, error)
       class(ode_stepper_radauIIA), intent(inout) :: this
       class(ode_system), intent(inout) :: sys
       real, intent(in) :: t
@@ -51,6 +52,7 @@ contains
       real, pointer, contiguous, intent(inout) :: yerr(:)
       real, optional, pointer, contiguous, intent(in)  :: dydt_in(:)
       real, optional, pointer, contiguous, intent(in) :: dydt_out(:)
+      class(ode_step_control), intent(inout) :: c
       real, intent(in) :: hold
       real, intent(out) :: hnew
       logical, intent(out) :: accept
@@ -107,19 +109,8 @@ contains
 
          yerr = gamma/hold*matmul(this%Asmall, yerr)
 
-         atol = this % atol
-         rtol = this % rtol
-
-         ! !> use this % ytmp as storage scaled y error in case of further
-         ! !! yerr usage
-         ! do i=1,n
-         !    sc = atol + max( abs(y0(i)), abs(y1(i)) )*rtol
-         !    this % ytmp(i) = yerr(i)/sc
-         !    ! @todo check for 0 division
-         ! end do
-
-         ! yerr_norm = norm2(this % ytmp)/sqrt(1.0*n)
-         ! ! print *, "err: ", yerr_norm
+         atol = c % eps_abs
+         rtol = c % eps_rel
 
 !------------------------------------------------------------------------------
          if ( this%first_step .or. this%last_step_rejected ) then
@@ -148,8 +139,6 @@ contains
 !------------------------------------------------------------------------------
 
          !> Compute the scaled y error
-         atol = this % atol
-         rtol = this % rtol
          do i=1,n
             sc = atol + max( abs(y0(i)), abs(y1(i)) )*rtol
             this % ytmp(i) = yerr(i)/sc
@@ -173,7 +162,7 @@ contains
          else !> yerr_norm >= 1
             accept = .false.
             this%last_step_rejected = .true.
-            print *, t, yerr_norm                                         !> @ERROR ??
+            print *, "# ", t, yerr_norm                                  !> @ERROR ??
          end if
 
          !> Determine safety factor
@@ -246,6 +235,8 @@ contains
       p % name = "radauIIA"
       p % stages = 3
       p % status = FPDE_STATUS_OK ! @todo
+
+      p % lsb = 3.3
 
       call p%ode_stepper_rk_implicit_abstract%init(err)
 

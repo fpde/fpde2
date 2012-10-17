@@ -1,4 +1,16 @@
+!>
+!! @file   van_der_pol.f90
+!! @author Maciej Maliborski <maciej.maliborski@gmail.com>
+!! @date   Tue Sep  4 11:06:35 2012
+!!
+!! @brief
+!!
+!! @todo - [] write doc
+!!       - [] clean the code
+!!
 module class_odeiv_van_der_Pol
+
+   use ieee_arithmetic
 
    use constants_module
    use logger_module
@@ -7,6 +19,7 @@ module class_odeiv_van_der_Pol
    private
 
    type, public, extends(odeiv_generic) :: odeiv_vdp
+      real :: mu = 1000
    contains
       procedure :: init
    end type odeiv_vdp
@@ -18,7 +31,7 @@ contains
       integer, parameter :: n=2
 
       this % name = 'VDPOL'
-      this % description = "van der Pol's equation with parameter mu=1000"
+      this % description = "van der Pol's equation"
 
       allocate( this % y0(n) )
       allocate( this % y1(n) )
@@ -27,7 +40,7 @@ contains
       this % h = 1.0e-4
       this % t = [ 0.0, 2.0 ]
 
-      call this%sys%init(fun = vdpol_rhs, jac = vdpol_jac, dim = n)
+      call this%sys%init(fun = vdpol_rhs, jac = vdpol_jac, dim = n, params=this)
 
    end subroutine init
 
@@ -35,12 +48,16 @@ contains
       real, intent(in) :: t
       real, pointer, contiguous, intent(in) :: y(:)
       real, pointer, contiguous, intent(out) :: dydt(:)
-      class(*) :: params
+      class(odeiv_vdp) :: params
       integer, optional :: status
-      !> fixed equation parameters
-      real, parameter :: mu = 1000.0
+      !> local variables
+      real :: mu
+      mu = params % mu
 
-      dydt = [ y(2) , mu**2*( (1.0-y(1)**2)*y(2) - y(1) ) ]
+      dydt = [ &
+           y(2), &
+           mu**2*( (1.0-y(1)**2)*y(2) - y(1) ) &
+           ]
 
       if( present(status) ) then
          status = FPDE_STATUS_OK
@@ -52,22 +69,25 @@ contains
       real, pointer, contiguous, intent(in) :: y(:)
       real, pointer, contiguous, intent(out) :: dfdy(:,:)
       real, pointer, contiguous, intent(out) :: dfdt(:)
-      class(*) :: params
+      class(odeiv_vdp) :: params
       integer, optional :: status
-      !> fixed equation parameters
-      real, parameter :: mu = 1000.0
+      !> local variables
+      real :: mu
+      mu = params % mu
 
       dfdt = 0.0
 
       dfdy(1,:) = [ 0.0, 1.0 ]
       dfdy(2,:) = [ -mu**2*( 1.0 + 2.0*y(1)*y(2) ), mu**2*( 1.0 - y(1)**2 ) ]
 
-      !  dfdy(1,:) = [ 0.0, -mu**2*( 1.0 + 2.0*y(1)*y(2) ) ]
-      ! dfdy(2,:) = [ 1.0, mu**2*( 1.0 - y(1)**2 ) ]
-
       if( present(status) ) then
-         status = FPDE_STATUS_OK
+         if( any(ieee_is_nan(dfdy)) .or. (.not. all(ieee_is_finite(dfdy))) ) then
+            status = FPDE_STATUS_ERROR
+         else
+            status = FPDE_STATUS_OK
+         end if
       end if
+
    end subroutine vdpol_jac
 
 end module class_odeiv_van_der_Pol
