@@ -16,7 +16,7 @@ foreach(bin ${tests_list})
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY
     ${CMAKE_CURRENT_BINARY_DIR})
-  
+
   get_filename_component(bin_path ${bin}.f90 PATH)
 
   if( bin_path STRGREATER "" )
@@ -27,7 +27,7 @@ foreach(bin ${tests_list})
   set_target_properties(${bin}
     PROPERTIES
     COMPILE_FLAGS
-    "${Fortran90_FLAGS} ${Fortran90_DFLAGS} ${Fortran90_OFLAGS} ${Fortran90_PFLAGS}")
+    "${Fortran90_FLAGS}")
   # link to the helper libraries
-  target_link_libraries(${bin} project_lib_shared ${external_libs})
+  target_link_libraries(${bin} project_lib_shared ${Fortran90_LFLAGS})
 endforeach(bin)

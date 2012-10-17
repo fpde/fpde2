@@ -34,38 +34,33 @@ find_program(xild xild)
 mark_as_advanced(xild)
 # printing some software info
 message(STATUS "Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
+message(STATUS "Fortran compiler: ${CMAKE_Fortran_COMPILER}")
 message(STATUS "Archiver: ${CMAKE_AR}")
 message(STATUS "Linker: ${CMAKE_LINKER}")
+message(STATUS ${os})
 SET (CMAKE_Fortran_CREATE_STATIC_LIBRARY "<CMAKE_AR> cru <LINK_FLAGS> <TARGET> <OBJECTS>")
 # message(STATUS "${CMAKE_Fortran_CREATE_STATIC_LIBRARY}")
 # variables used in out of source build
 set( LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/lib )
-#set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake )
 # .mod files output directory (fortran specific)
 set( CMAKE_Fortran_MODULE_DIRECTORY ${LIBRARY_OUTPUT_PATH}/mod)
 # add the above path to include path
-include_directories( ${LIBRARY_OUTPUT_PATH} )
+include_directories(${LIBRARY_OUTPUT_PATH})
 
-# set Intel Fortran compiler flags
-# @todo this should be done better
-# FLAGS - generic flags
-# DFLAGS - debugging flags
-# OFLAGS - optimization flags
-# PFLAGS - precision flags
-set(Fortran77_FLAGS "" )
-set(Fortran77_DFLAGS "")
-set(Fortran77_OFLAGS "-O3")
-set(Fortran77_PFLAGS "-fp-model strict -double-size 128 -integer-size 64")
+# Set the compiler flags using a configuration file
+set(Fortran90_FLAGS "@${PROJECT_SOURCE_DIR}/config/ifort/compiler.cfg")
 
-set(Fortran90_FLAGS "-fPIC -stand f08 -u -warn all -warn nounused -check all -check nopointers -cpp" )
-set(Fortran90_DFLAGS "-debug all -gen-interfaces -traceback")
-set(Fortran90_OFLAGS "-O3")
-set(Fortran90_PFLAGS "-fp-model strict -real-size 64 -integer-size 64")
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 
-SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 # set external libraries required by this project
-find_package(Lua52 REQUIRED)
-set(external_libs ${LUA_LIBRARY})
+find_package(LuaJIT REQUIRED)
+add_definitions("-Dluajit")
+
+find_package(MKL REQUIRED)
+include_directories(${MKL_INCLUDE_DIRS})
+
+# define linker flags
+set(Fortran90_LFLAGS ${LUAJIT_LIBRARY} ${MKL_LIBRARIES})
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)
@@ -78,11 +73,5 @@ add_subdirectory(atomic EXCLUDE_FROM_ALL)
 
 # subdirectory with tests
 add_subdirectory(test)
-
 include(${PROJECT_SOURCE_DIR}/test/CMakeTests.cmake)
-
 include(${CMAKE_CURRENT_SOURCE_DIR}/config/doxygen.cmake)
-
-#add_custom_command(OUTPUT alala COMMAND make ARGS test DEPENDS tests)
-#add_dependencies(${CMAKE_CTEST_COMMAND} tests)
-#add_custom_target(Name [ALL] [command1
