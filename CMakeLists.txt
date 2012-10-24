@@ -60,7 +60,7 @@ find_package(MKL REQUIRED)
 include_directories(${MKL_INCLUDE_DIRS})
 
 # define linker flags
-set(Fortran90_LFLAGS ${LUAJIT_LIBRARY} ${MKL_LIBRARIES})
+set(Fortran90_LFLAGS ${LUAJIT_LIBRARY}; ${MKL_LIBRARIES})
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)

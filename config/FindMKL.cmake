@@ -14,8 +14,8 @@ set(MKLROOT $ENV{MKLROOT})
 
 IF(MKL_CORE_LIBRARY)
   IF(UNIX AND NOT APPLE)
-    set(MKL_LIBRARIES "mkl_lapack95_lp64;mkl_intel_lp64;mkl_sequential;mkl_core;pthread;m")
-    set(MKL_INCLUDE_DIRS "${MKLROOT}/include;${MKLROOT}/include/intel64/lp64")
+    set(MKL_LIBRARIES "mkl_lapack95_lp64"; "mkl_intel_lp64"; "mkl_sequential"; "mkl_core"; "pthread"; "m")
+    set(MKL_INCLUDE_DIRS "${MKLROOT}/include"; "${MKLROOT}/include/intel64/lp64")
   ENDIF()
 ENDIF()
 
