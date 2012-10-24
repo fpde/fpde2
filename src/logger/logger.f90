@@ -1,15 +1,16 @@
 module logger_module
 
+  use helper_module
+  use iso_fortran_env
   use constants_module
 
   private
 
-  integer, public, parameter :: FPDE_PATH_LEN = 1000
   integer, public, parameter :: FPDE_MSG_LEN  = 1000
-  ! Fortran and Unix file descriptors are equivalent
-  integer, public, parameter :: FPDE_STDOUT   = 6
-  integer, public, parameter :: FPDE_STDIN    = 5
-  integer, public, parameter :: FPDE_STDERR   = 0
+  ! io units are taken from iso_fortran_env
+  integer, public, parameter :: FPDE_STDOUT   = output_unit
+  integer, public, parameter :: FPDE_STDIN    = input_unit
+  integer, public, parameter :: FPDE_STDERR   = error_unit
 
 
   !< fpde logger log levels idendtifiers
@@ -17,167 +18,254 @@ module logger_module
        FPDE_LOG_ERROR   = 1,&
        FPDE_LOG_WARNING = 2,&
        FPDE_LOG_INFO    = 3,&
-       FPDE_LOG_DEBUG   = 4
+       FPDE_LOG_DEBUG   = 4,&
+       FODE_LOG_STOP    = 5
 
+  character(len=1), parameter :: &
+       lvl_stamp_array(5) = ["E", "W", "I", "D", "S"]
 
   type, public :: named
-     integer :: logfile_unit = FPDE_STDOUT !if 0, log will write to logger%unit
+     integer, private :: logfile_unit = FPDE_STDOUT
+     logical, private :: logging = .true.
      integer :: status = 0       !0 means OK!
-     character(len=NAME_LEN) :: name = "" !empty name should produce a warning
+     character(len=:), allocatable :: name !empty name should produce a warning
    contains
      procedure, non_overridable :: log
+     procedure, non_overridable :: loge
+     procedure, non_overridable :: logw
+     procedure, non_overridable :: logi
+     procedure, non_overridable :: logd
+
+     !! @todo get_name() is intended to replace variable name as a
+     !! function name() if name is not to be changed after creation
+     !! of type(named)
+     procedure, non_overridable :: get_name
+
+     procedure, non_overridable :: log_newfile
+     procedure, non_overridable :: log_clear
   end type named
 
 
-  type, private :: logger_singleton
+  type :: logger_singleton
      integer :: log_level = FPDE_LOG_DEBUG
      integer :: msg_id = 1
-     character(len=FPDE_PATH_LEN) :: path = "log/" !@todo what if this dir do not exists?
-   contains
-     procedure :: try_write
+     character(len=:), allocatable :: path !@todo what if this dir do not exists?
+     ! character(len=FPDE_PATH_LEN) :: path = "log/" !@todo what if
+     ! this dir do not exists?
   end type logger_singleton
 
 
-  type(logger_singleton), public, save :: logger
+  type(logger_singleton), save :: logger
 
-
-  public :: get_new_logfile_unit, set_log_level
-
+  public :: set_log_level, log_newdir
 
 contains
 
+  function lvl_stamp(lvl)
+    integer, intent(in) :: lvl
+    character(len=1) :: lvl_stamp
 
-   subroutine set_log_level(lvl)
-      integer :: lvl
-      logger%log_level = lvl
-   end subroutine set_log_level
-
-
-   subroutine log(n, lvl, msg)
-      class(named) :: n
-      integer :: lvl, status=FPDE_STATUS_OK
-      character(len=*) :: msg
-      character(len=FPDE_MSG_LEN) :: text
-      character(len=10) :: lvl_text
-      character(len=19) :: timestamp
-
-      ! @todo this if block is strange, since one might
-      ! to have logs in stderr
-      if ( n%logfile_unit == 0 ) then
-         call get_new_logfile_unit( n%logfile_unit )
-      end if
-
-      if( logger%log_level < lvl ) return
-
-      select case(lvl)
-      case (FPDE_LOG_ERROR)
-         lvl_text = "E"
-      case (FPDE_LOG_WARNING)
-         lvl_text = "W"
-      case (FPDE_LOG_INFO)
-         lvl_text = "I"
-      case (FPDE_LOG_DEBUG)
-         lvl_text = "D"
-      case default
-         lvl_text = "?"
-      end select
-
-      !! @bug somehow this coused problems in class_icicles: get()
-      !! (icicles.f90), it's not needed anyway.
-      ! call get_timestamp(timestamp)
-
-      write(text,'("[",i6,"] ",A15,"[",A1,"] ",A)')&
-           logger%msg_id,&
-           n%name,&
-           lvl_text,&
-           msg
-
-      logger%msg_id = logger%msg_id + 1
-
-      call logger%try_write( n%logfile_unit, trim(text), status )
-
-      if( status /= FPDE_STATUS_OK ) then
-         n%logfile_unit = FPDE_STDOUT
-      end if
-
-   end subroutine log
+    if( lvl <= size(lvl_stamp_array) .and. lvl >= 1) then
+       lvl_stamp = lvl_stamp_array(lvl)
+    else
+       lvl_stamp = "?"
+    end if
+  end function lvl_stamp
 
 
-   subroutine try_write(l, unit, text, status)
-      class(logger_singleton) :: l
-      integer :: unit
-      integer :: iostat, status
-      logical :: opened
-      character(len=*) :: text
-      character(len=FPDE_PATH_LEN) :: name
+  function get_name(self)
+    class(named) :: self
+    character(len=:), allocatable :: get_name
 
-      inquire(unit = unit, opened = opened, name = name )
-
-      if( .not. opened ) then
-         print *, "ERROR: try_write was unable to write to a file named ", trim(name)
-         print *, text
-         status = FPDE_STATUS_ERROR
-      else
-         write( unit, *, iostat=iostat ) trim(text)
-         if( iostat /= 0  ) then
-            print *, "ERROR: try_write was unable to write to a file iostat=", iostat
-            print *, text
-            status = FPDE_STATUS_ERROR
-         end if
-      end if
-
-   end subroutine try_write
+    if( allocated(self%name) ) then
+       get_name = self%name
+    else
+       get_name = "unnamed"
+    end if
+  end function get_name
 
 
-   subroutine get_new_logfile_unit(unit, fn)
-      integer :: unit
-      character(len=FPDE_PATH_LEN) :: filename
-      character(len=*), optional :: fn
-      character(len=19) :: timestamp
-      integer :: iostat
+  subroutine set_log_level(lvl)
+    integer :: lvl
+    ! if lvl < 1 than log_level = 1,
+    ! if lvl > size(lvl_stamp) then log_level = size(lvl_stamp)
+    ! otherwise log_level = lvl
+    logger%log_level = min( max(lvl, 1), size(lvl_stamp_array) )
+  end subroutine set_log_level
 
 
-      if(.not. present(fn)) then
-         call get_timestamp(timestamp)
-         write(filename, '(A)') trim(logger%path) // timestamp // ".log"
-      else
-         write(filename, '(A)') fn
-      end if
+  subroutine log_newdir(dirname, error)
+    character(len=*), intent(in) :: dirname
+    integer, intent(out), optional :: error
 
-      open(newunit = unit,&
-           file    = filename,  &
-           form    = 'formatted', &
-           action  = 'write', &
-                                ! access = 'direct', &
-           recl    = 10000, &
-           iostat = iostat, &
-           status  = 'replace')
+    integer :: err
 
-      if( iostat /= 0  ) then
-         print *, "ERROR: in logger: get_new_logfile_unit ioostat =", iostat, ". Fallback to STDOUT"
-         unit = FPDE_STDOUT
-         return
-      end if
+    if(present(error)) error = FPDE_STATUS_ERROR
 
-      if( unit == 0) then
-         print *, "ERROR: in logger: get_new_logfile_unit unit =", unit, ". Fallback to STDOUT"
-         unit = FPDE_STDOUT
-         return
-      end if
+    call mkdir(dirname, error = err)
+    if( err /= FPDE_STATUS_OK ) return
 
-   end subroutine get_new_logfile_unit
+    if(present(error)) error = FPDE_STATUS_OK
+    logger%path = dirname
+  end subroutine log_newdir
 
 
-   subroutine get_timestamp(timestamp)
-      character(len=19) :: timestamp
-      character(len=8) :: date
-      character(len=10) :: time
+  subroutine loge(self,msg)
+    class(named) :: self
+    character(len=*), intent(in) :: msg
+    call self%log(FPDE_LOG_ERROR,msg)
+  end subroutine loge
 
-      call date_and_time(date=date, time=time)
 
-      write(timestamp, '(3(A))') date, "-", time
+  subroutine logw(self,msg)
+    class(named) :: self
+    character(len=*), intent(in) :: msg
+    call self%log(FPDE_LOG_WARNING,msg)
+  end subroutine logw
 
-   end subroutine get_timestamp
+
+  subroutine logi(self,msg)
+    class(named) :: self
+    character(len=*), intent(in) :: msg
+    call self%log(FPDE_LOG_INFO,msg)
+  end subroutine logi
+
+
+  subroutine logd(self,msg)
+    class(named) :: self
+    character(len=*), intent(in) :: msg
+    call self%log(FPDE_LOG_DEBUG,msg)
+  end subroutine logd
+
+
+  subroutine log(self, lvl, msg)
+    class(named) :: self
+    character(len=*), intent(in) :: msg
+    integer, intent(in) :: lvl
+
+    integer :: err
+    character(len=FPDE_MSG_LEN) :: text
+
+    ! non-writable unit, return immediately
+    if( .not. self%logging ) return
+
+    ! if lvl is higher than maximum, ignore this call and return
+    if( logger%log_level < lvl ) return
+
+    write( text, '("[",i6,"] (",A1,")",A15,": ",A)' )&
+         logger%msg_id,&
+         lvl_stamp(lvl),&
+         self%get_name(),&
+         msg
+
+    ! count all calls to log which fit the logging level
+    logger%msg_id = logger%msg_id + 1
+
+    ! try to write to a unit
+    call try_write( self%logfile_unit, text, error = err)
+    if( err /= FPDE_STATUS_OK ) then
+       call try_write(FPDE_STDERR, "Unable to use unit "//itoa(self%logfile_unit))
+       self%logging = .false.
+    end if
+
+  end subroutine log
+
+
+  subroutine try_write(unit, text, error)
+    integer, intent(in) :: unit
+    character(len=*), intent(in) :: text
+    integer, intent(out), optional :: error
+
+    logical :: o
+    integer :: ios
+    character(len=7) :: w
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    ! determine if the unit is writable
+    inquire( unit, write = w, opened = o )
+    if( .not. o .or. w /= 'YES' ) return
+
+    if( unit == FPDE_STDERR ) then
+       write (unit, *, iostat = ios) trim("-- Error -- "//text)
+    else
+       write (unit, *, iostat = ios) trim(text)
+    end if
+
+    if( ios /= 0 ) return
+
+    if( present(error) ) error = FPDE_STATUS_OK
+
+  end subroutine try_write
+
+
+  subroutine log_clear(self)
+    class(named) :: self
+
+    logical :: opened
+
+    inquire( unit = self%logfile_unit, opened = opened )
+    if( opened ) then
+       open( unit = self%logfile_unit, status = 'replace' )
+    end if
+
+  end subroutine log_clear
+
+
+  subroutine log_newfile(self, filename, error)
+    class(named) :: self
+    character(len=*), optional :: filename
+    integer, optional, intent(out) :: error
+
+    character(len=:), allocatable :: fn
+    character(len=7) :: w
+    integer :: iostat, u
+    logical :: opened
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    if( .not. present(filename) ) then
+       fn = "default" // ".log"
+    else
+       fn = filename
+    end if
+
+    ! prepend the global log path (if it exists)
+    if( allocated(logger%path) ) then
+       fn = logger%path // fn
+    end if
+
+    ! check if the file with such name is already open and writable
+    inquire(file = fn, number = u, write = w, opened = opened)
+
+    if( opened .and. w == "YES") then
+       ! if file is writable and open, assign its unit to self
+       self%logfile_unit = u
+       if(present(error)) error = FPDE_STATUS_OK
+
+    else
+       ! otherwise, try to open a file
+       open(newunit = self%logfile_unit,&
+            file = fn,&
+            action = 'write',&
+            recl = 10000,&
+            iostat = iostat,&
+            status = 'replace')
+
+       ! and check for errors after opening it
+       if( iostat /= 0  ) then
+          call try_write(FPDE_STDERR, "Unable to open file ["//fn//"]")
+          self%logging = .false.
+          return
+       end if
+    end if
+
+    ! if a unit is working resume logging
+    self%logging = .true.
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+  end subroutine log_newfile
 
 
 end module logger_module
