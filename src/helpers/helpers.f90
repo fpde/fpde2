@@ -19,6 +19,47 @@ module helper_module
 
 contains
 
+  function sys( cmd )
+
+#ifdef __INTEL_COMPILER
+  use ifport
+#endif
+
+    character(len=*), intent(in) :: cmd
+    logical :: sys
+
+    integer :: estat
+
+    sys = .false.
+
+#ifdef __GFORTRAN__
+    call execute_command_line(cmd, exitstat = estat)
+    sys = (estat == 0)
+#endif
+
+#ifdef __INTEL_COMPILER
+    sys = systemqq(cmd)
+#endif
+
+  end function sys
+
+
+  subroutine mkdir( dirname, error )
+    character(len=*), intent(in) :: dirname
+    integer, intent(out), optional :: error
+
+    character(len=:), allocatable :: cmd
+
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    cmd = "mkdir -p " // dirname
+
+    if( .not. sys(cmd) ) return
+
+    if( present(error) ) error = FPDE_STATUS_OK
+  end subroutine mkdir
+
+
   function findloc_character ( array, val ) result(r)
     character(len=*), intent(in) :: array(:), val
     integer, allocatable :: r(:)

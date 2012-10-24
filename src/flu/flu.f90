@@ -23,19 +23,15 @@ module flu_module
   use logger_module
   use constants_module
 
-#define luajit
-! #define lua51
-  ! #define lua52
-
 #ifdef luajit
 #define lua51
 #endif
 
   !> lua constants, copied from lua.h
-  integer(c_int), parameter :: &
-       C_LUA_MULTRET = -1,&
-       C_LUAI_MAXSTACK = 1000000,&
-       C_LUAI_FIRSTPSEUDOINDEX = -C_LUAI_MAXSTACK - 1000,&
+  integer(c_int), parameter ::                          &
+       C_LUA_MULTRET = -1,                              &
+       C_LUA_MAXSTACK = 1000000,                        &
+       C_LUA_FIRSTPSEUDOINDEX = -C_LUA_MAXSTACK - 1000, &
        C_LUA_GLOBALSINDEX = -10002
 
 #ifdef luajit
@@ -47,8 +43,8 @@ module flu_module
   !> fortran version of the above parameters
   integer, parameter :: &
        LUA_MULTRET           = int(C_LUA_MULTRET),           &
-       LUAI_MAXSTACK         = int(C_LUAI_MAXSTACK),         &
-       LUAI_FIRSTPSEUDOINDEX = int(C_LUAI_FIRSTPSEUDOINDEX), &
+       LUA_MAXSTACK          = int(C_LUA_MAXSTACK),          &
+       LUA_FIRSTPSEUDOINDEX  = int(C_LUA_FIRSTPSEUDOINDEX),  &
        LUA_REGISTRYINDEX     = int(C_LUA_REGISTRYINDEX),     &
        LUA_GLOBALSINDEX      = int(C_LUA_GLOBALSINDEX)
 

@@ -28,16 +28,10 @@ foreach(bin ${atomics_list})
   set_target_properties(${bin}
     PROPERTIES
     COMPILE_FLAGS
-    "${Fortran90_FLAGS} ${Fortran90_DFLAGS} ${Fortran90_OFLAGS} ${Fortran90_PFLAGS}"
-    EXCLUDE_FROM_ALL "FALSE")
+    "${Fortran90_FLAGS}")
   # link to the helper libraries
-  target_link_libraries(${bin} project_lib_shared ${external_libs})
+  target_link_libraries(${bin} project_lib_shared ${Fortran90_LFLAGS})
 
   add_dependencies(build_atomics ${bin})
 
 endforeach(bin)
-
-# set_target_properties(build_atomics
-#   PROPERTIES
-#   EXCLUDE_FROM_ALL "TRUE"
-#   )
