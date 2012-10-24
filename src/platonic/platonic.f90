@@ -40,7 +40,7 @@ module class_platonic
 contains
 
   subroutine init(p, error)
-    class(platonic), target :: p
+    class(platonic) :: p
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine init
