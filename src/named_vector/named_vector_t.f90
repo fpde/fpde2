@@ -30,7 +30,7 @@ contains
     allocate(r)
 
     r%named_vector_implementation = named_vector_implementation(&
-         name = name, initial = initial, shape = [integer::])
+         name = name, initial = initial, length = 1)
 
     r%tmax_ = tmax
   end function nvt_constructor

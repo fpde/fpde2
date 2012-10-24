@@ -9,13 +9,12 @@ module class_named_vector_implementation_
   type, public, extends(named_vector) :: named_vector_implementation
      private
      real, pointer :: val(:) => null()
-     integer, allocatable :: shape_(:)
+     integer :: length_ = 0
      class(generic_function), pointer :: initial_ => null()
    contains
      procedure :: vec
      procedure :: scal
      procedure :: length
-     procedure :: shape
      procedure :: point
      procedure :: initialize
   end type named_vector_implementation
@@ -28,9 +27,9 @@ module class_named_vector_implementation_
 
 contains
 
-  function nvi_constructor(name, shape, initial) result(r)
+  function nvi_constructor(name, length, initial) result(r)
     character(len=*), intent(in) :: name
-    integer, intent(in), optional :: shape(:)
+    integer, intent(in), optional :: length
     class(generic_function), intent(in), target, optional :: initial
 
     type(named_vector_implementation), pointer :: r
@@ -39,10 +38,10 @@ contains
 
     r%name = trim(name)
 
-    if( present(shape) ) then
-       r%shape_ = shape
+    if( present(length) ) then
+       r%length_ = length
     else
-       r%shape_ = [integer::]
+       r%length_ = 1
     end if
 
     if( present(initial) ) then
@@ -64,16 +63,10 @@ contains
     scal => self%val(1)
   end function scal
 
-  function shape(self)
-    class(named_vector_implementation), intent(in) :: self
-    integer, allocatable :: shape(:)
-    shape = self%shape_
-  end function shape
-
   function length(self)
     class(named_vector_implementation), intent(in) :: self
     integer :: length
-    length = product(self%shape_)
+    length = self%length_
   end function length
 
   subroutine point(self, v)

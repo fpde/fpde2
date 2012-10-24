@@ -25,7 +25,9 @@ module class_named_vector_f_implementation_ghost
      class(bbox_user), pointer    :: bbox_  => null()
      type(d_ptr), pointer         :: dx_(:) => null()
      class(named_vector), pointer :: dt_    => null()
+     integer, allocatable         :: shape_(:)
    contains
+     ! procedure :: shape
      procedure :: dx
      procedure :: dt => der_t
      procedure :: b => boundary_param
@@ -52,15 +54,19 @@ contains
 
     type(named_vector_f_implementation), pointer :: r
 
-    integer :: i
+    integer :: i, length
 
     allocate(r)
 
+    length = product(shape)
+
     r%named_vector_implementation&
          = named_vector_implementation(&
-         name = name, &
-         shape = shape,&
+         name = name,&
+         length = length,&
          initial = initial )
+
+    r%shape_ = shape
 
     if( present(boundary) ) then
        r%bbox_ => boundary
@@ -72,7 +78,7 @@ contains
          do i = 1, size(dx,2)
             d(i)%val => named_vector_implementation(&
                  name    = "d",&
-                 shape   = shape)
+                 length  = length)
             d(i)%alpha = dx(:,i)
          end do
        end associate
@@ -81,10 +87,19 @@ contains
     if( present(dt) ) then
        r%dt_ => named_vector_implementation(&
             name = "dt",&
-            shape = shape)
+            length = length)
     end if
 
   end function nvf_constructor
+
+
+  function shape(self)
+    class(named_vector_f_implementation), intent(in) :: self
+    integer, allocatable :: shape(:)
+    call self%logw("Please do not use the shape() function, it will be&
+         & depreciated with the implementation of coordinates")
+    shape = self%shape_
+  end function shape
 
 
   function dx(self, alpha)

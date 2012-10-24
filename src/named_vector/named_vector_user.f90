@@ -9,7 +9,6 @@ module class_named_vector_user_
    contains
      procedure(vec_i), deferred :: vec
      procedure(scal_i), deferred :: scal
-     procedure(shape_i), deferred :: shape
      procedure(length_i), deferred :: length
   end type named_vector_user
 
@@ -27,12 +26,6 @@ module class_named_vector_user_
        class(named_vector_user), intent(in) :: self
        real, pointer :: scal_i
      end function scal_i
-
-     function shape_i(self)
-       import named_vector_user
-       class(named_vector_user), intent(in) :: self
-       integer, allocatable :: shape_i(:)
-     end function shape_i
 
      function length_i(self)
        import named_vector_user

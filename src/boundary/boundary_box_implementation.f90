@@ -63,7 +63,7 @@ contains
 
     type(bbox_implementation), pointer :: r
 
-    integer :: dim, i, x, side, np, k
+    integer :: dim, i, x, side, np, k, length
     character(len=:), allocatable :: pname
 
     allocate(r)
@@ -80,6 +80,7 @@ contains
     end if
 
     do x = 1, dim
+       length = product([shape(1:x-1),1,shape(x+1:)])
        do side = 1, 2
           associate(e => r%entries(side,x))
             if( .not. associated(e%val) ) e%val => factory(default)
@@ -89,7 +90,7 @@ contains
                pname = "p" ! @todo pname = "b%param_name(k)"
                pname = boundary_param_name(x,side,k,pname)
                e%params(k)%val => named_vector_implementation(&
-                    shape = [shape(1:x-1),1,shape(x+1:)],&
+                    length = length,&
                     name = pname)
             end do
           end associate
