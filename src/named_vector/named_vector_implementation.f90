@@ -24,6 +24,10 @@ module class_named_vector_implementation_
      module procedure :: nvi_constructor
   end interface named_vector_implementation
 
+  !> @bug made public due to ifort bug if constructor is used in
+  !! boundary/boundary.f90. This line should be removed when the bug
+  !! is resolved
+  public :: nvi_constructor
 
 contains
 
