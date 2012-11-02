@@ -8,25 +8,25 @@
 !!
 !!
 !!
-module class_mesh_sfd3pt
+module class_mesh1d_sfd3pt
   use constants_module
   use logger_module
   use class_mesh1d
 
   private
 
-  type, public, extends( mesh1d ) :: mesh_sfd3pt
+  type, public, extends( mesh1d ) :: mesh1d_sfd3pt
    contains
      ! overloaded procedures go here (if needed)
      procedure :: init
      procedure :: diff
      ! procedure :: diff_point
-  end type mesh_sfd3pt
+  end type mesh1d_sfd3pt
 
 contains
 
   subroutine init( p, error )
-    class(mesh_sfd3pt) :: p
+    class(mesh1d_sfd3pt) :: p
     integer, optional, intent(out) :: error
 
     if(present(error)) error = FPDE_STATUS_OK
@@ -38,7 +38,7 @@ contains
   end subroutine init
 
   subroutine diff( self, f, x, df, k )
-    class(mesh_sfd3pt), target, intent(inout) :: self
+    class(mesh1d_sfd3pt), target, intent(inout) :: self
     real, intent(in) :: f(:), x(:)
     real, intent(out) :: df(:,:)
     integer, intent(in) :: k(:)
@@ -84,7 +84,7 @@ contains
   end subroutine diff
 
   function diff_point( self, f, x, k, i ) result(d)
-    class(mesh_sfd3pt), target, intent(inout) :: self
+    class(mesh1d_sfd3pt), target, intent(inout) :: self
     integer, intent(in) :: i,k
     real, intent(in) :: f(:), x(:)
     real :: d
@@ -95,4 +95,4 @@ contains
   end function diff_point
 
 
-end module class_mesh_sfd3pt
+end module class_mesh1d_sfd3pt
