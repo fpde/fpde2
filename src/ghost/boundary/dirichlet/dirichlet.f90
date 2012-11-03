@@ -6,23 +6,20 @@ module class_boundary_ghost_dirichlet
 
   private
 
-  character(len=*), parameter :: a = "a"
-
   type, public, extends(boundary_ghost) :: boundary_ghost_dirichlet
    contains
-     ! procedure :: init
      procedure :: generate_values
+     procedure :: p_names
   end type boundary_ghost_dirichlet
 
 contains
 
-  ! subroutine init(p, error)
-  !   class(boundary_dirichlet), target :: p
-  !   integer, optional, intent(out) :: error
-  !   if(present(error)) error = FPDE_STATUS_OK
-  !   p%name = "Boundary_dirichlet"
-  !   call p%set_param_names([a])
-  ! end subroutine init
+
+  function p_names(self)
+    class(boundary_ghost_dirichlet) :: self
+    character(len=:), allocatable :: p_names(:)
+    p_names = ["a"]
+  end function p_names
 
 
   subroutine generate_values(self, fin, fout, xin, params, error)

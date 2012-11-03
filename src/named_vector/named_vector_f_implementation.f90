@@ -1,3 +1,15 @@
+!>
+!! @file   named_vector_f_implementation.f90
+!! @author Pawel Biernat <pawel.biernat@gmail.com>
+!! @date   Fri Nov  2 16:44:18 2012
+!!
+!! @brief
+!!
+!! @todo allocate dx and dt on the fly and remove arguments "dx" and
+!! "dt" from the constructor
+!!
+!!
+!!
 module class_named_vector_f_implementation_ghost
 
   use class_named_vector_
@@ -7,9 +19,12 @@ module class_named_vector_f_implementation_ghost
 
   use class_generic_function
 
-  use class_bbox_user
+  use class_bbox
 
   use class_icicles_user_
+
+  use class_derivator
+  use class_coordinates
 
   private
 
@@ -22,16 +37,19 @@ module class_named_vector_f_implementation_ghost
 
   type, public, extends(named_vector_f) :: named_vector_f_implementation
      private
-     class(bbox_user), pointer    :: bbox_  => null()
-     type(d_ptr), pointer         :: dx_(:) => null()
+     class(bbox), pointer         :: bbox_  => null()
+     class(generic_function), pointer :: bbox_update_ => null()
+     type(d_ptr), allocatable     :: dx_(:)
      class(named_vector), pointer :: dt_    => null()
+     class(derivator), pointer    :: d_     => null()
    contains
+     procedure :: c => get_coordinates
      procedure :: dx
      procedure :: dt => der_t
-     procedure :: b => boundary_param
-     procedure :: num_boundary_param
-     procedure :: update_boundary_param
-     procedure :: bbox => boundary
+     procedure :: bbox_param
+     procedure :: bbox_nparam
+     procedure :: bbox_update
+     procedure :: bbox => get_bbox
   end type named_vector_f_implementation
 
 
@@ -39,54 +57,54 @@ module class_named_vector_f_implementation_ghost
      module procedure :: nvf_constructor
   end interface named_vector_f_implementation
 
+  public :: nvf_constructor
 
 contains
 
-  function nvf_constructor(name, shape, initial, dx, boundary, dt) result(r)
+  function nvf_constructor&
+       (name, d, btypes, bbox_update) result(r)
     character(len=*), intent(in)                :: name
-    integer, intent(in)                         :: shape(:)
-    class(generic_function), intent(in), target :: initial
-    integer, intent(in), optional               :: dx(:,:)
-    logical, intent(in), optional               :: dt
-    class(bbox_user), target, optional          :: boundary
+    class(derivator), intent(in), target        :: d
+    character(len=*), intent(in), optional      :: btypes(:)
+    class(generic_function), intent(in), target, optional :: bbox_update
 
     type(named_vector_f_implementation), pointer :: r
+    class(coordinates), pointer :: c
 
-    integer :: i
+    integer :: i, length
 
     allocate(r)
 
+    ! assign derivator
+    r%d_ => d
+
+    ! generate boundary box
+    if( present(btypes) ) then
+       r%bbox_ => d%bbox(btypes)
+    end if
+
+    ! save the bbox_update function
+    if( present(bbox_update) ) then
+       r%bbox_update_ => bbox_update
+    end if
+
+    !! @todo check if bbox_update .and. btypes are both present
+
+    ! get length from coordinates, equivalent to:
+    ! length = d%coordinates()%length()
+    c => d%coordinates()
+    length = c%length()
+
+    ! initialize parent
     r%named_vector_implementation&
          = named_vector_implementation(&
-         name = name, &
-         shape = shape,&
-         initial = initial )
-
-    if( present(boundary) ) then
-       r%bbox_ => boundary
-    end if
-
-    if( present(dx) ) then
-       allocate(r%dx_(size(dx,2)))
-       associate(d => r%dx_)
-         do i = 1, size(dx,2)
-            d(i)%val => named_vector_implementation(&
-                 name    = "d",&
-                 shape   = shape)
-            d(i)%alpha = dx(:,i)
-         end do
-       end associate
-    end if
-
-    if( present(dt) ) then
-       r%dt_ => named_vector_implementation(&
-            name = "dt",&
-            shape = shape)
-    end if
+         name = name,&
+         length = length)
 
   end function nvf_constructor
 
 
+  !! @todo allocate results of dx() on the fly
   function dx(self, alpha)
     use class_named_vector_user_
 
@@ -95,22 +113,47 @@ contains
 
     class(named_vector_user), pointer :: dx
 
-    integer :: i
+    type(d_ptr), allocatable :: temp_ptr(:)
+    real, pointer :: dxv(:)
+    class(named_vector), pointer :: dxnv
+    integer :: i, length
 
     dx => null()
 
-    associate( d => self%dx_ )
-      do i = 1, size(d)
-         if( all(d(i)%alpha == alpha) ) then
-            dx => d(i)%val
-            return
-         end if
-      end do
-    end associate
+    if( allocated(self%dx_) ) then
+       associate( d => self%dx_ )
+         do i = 1, size(d)
+            if( all(d(i)%alpha == alpha) ) then
+               dx => d(i)%val
+               return
+            end if
+         end do
+       end associate
+    else
+       allocate(self%dx_(0))
+    end if
+
+    if( .not. associated(dx) ) then
+       ! generate new vector
+       length = self%length()
+       dxnv => named_vector_implementation(&
+            name = "d",&
+            length = length)
+       dx => dxnv
+
+       ! allocate space
+       allocate(dxv(self%length()))
+       call dxnv%point(dxv)
+
+       ! add the vector to the table
+       temp_ptr = [self%dx_, d_ptr(alpha = alpha, val = dxnv)]
+       self%dx_ = temp_ptr
+    end if
 
   end function dx
 
 
+  !! @todo allocate dt_ on the fly
   function der_t(self)
     class(named_vector_f_implementation) :: self
 
@@ -120,57 +163,45 @@ contains
   end function der_t
 
 
-  function boundary(self)
+  function get_coordinates(self)
     class(named_vector_f_implementation), intent(in), target :: self
 
-    class(bbox_user), pointer :: boundary
-
-    boundary => self%bbox_
-
-  end function boundary
+    class(coordinates), pointer :: get_coordinates
+    get_coordinates => self%d_%coordinates()
+  end function get_coordinates
 
 
-  ! function alpha(self)
-  !   class(named_vector_f_implementation) :: self
-  !   integer, allocatable :: alpha(:,:)
-
-  !   associate( d => self%dx_)
-
-  !     ! its just an elaborate way of writing
-  !     ! alpha = d%alpha
-  !     alpha = reshape(&
-  !          [ (d(i)%alpha, i=1,size(d)) ],&
-  !          [size(self%shape()),size(d)])
-
-  !   end associate
-
-  ! end function alpha
-
-
-  function boundary_param(self, var, side, param)
+  function bbox_param(self, id, param) result(r)
     class(named_vector_f_implementation) :: self
-    integer, intent(in) :: var, side, param
+    integer, intent(in) :: id, param
 
-    class(named_vector_user), pointer :: boundary_param
+    class(named_vector_user), pointer :: r
 
-    boundary_param => null()
-  end function boundary_param
+    r => self%bbox_%param(id, param)
+  end function bbox_param
 
 
-  function num_boundary_param(self, var, side)
+  function bbox_nparam(self, id) result(r)
     class(named_vector_f_implementation) :: self
-    integer, intent(in) :: var, side
-
-    integer :: num_boundary_param
-
-    num_boundary_param = 0
-  end function num_boundary_param
+    integer, intent(in) :: id
+    integer :: r
+    r = self%bbox_%num_param(id)
+  end function bbox_nparam
 
 
-  subroutine update_boundary_param(self, ic)
+  subroutine bbox_update(self, ic)
     class(named_vector_f_implementation) :: self
     class(icicles_user), target :: ic
-  end subroutine update_boundary_param
+    call self%bbox_update_%call(ic)
+  end subroutine bbox_update
+
+
+  function get_bbox(self) result(r)
+    use class_bbox_user
+    class(named_vector_f_implementation) :: self
+    class(bbox_user), pointer :: r
+    r => self%bbox_
+  end function get_bbox
 
 
 end module class_named_vector_f_implementation_ghost

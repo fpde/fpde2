@@ -14,8 +14,9 @@ module ghost_boundary_factory
 
 contains
 
-  function ghost_boundary_new(id, error) result(s)
+  function ghost_boundary_new(id, length, error) result(s)
     class(boundary), pointer :: s
+    integer, intent(in) :: length
     integer, optional, intent(out) :: error
     character(len=*) :: id
 
@@ -24,16 +25,19 @@ contains
     select case(trim(id))
     case( "dirichlet" )
        allocate( boundary_ghost_dirichlet :: s )
-       s%name = nprefix // id
-       s%type = tprefix // id
     case( "neumann" )
        allocate( boundary_ghost_neumann :: s )
-       s%name = nprefix // id
-       s%type = tprefix // id
     case default
        if(present(error)) error = FPDE_STATUS_ERROR
        nullify( s )
+       return
     end select
+
+    if( .not. associated(s) ) then
+       s%name = nprefix // id
+       s%type = tprefix // id
+       call s%allocate_params(length)
+    end if
 
   end function ghost_boundary_new
 

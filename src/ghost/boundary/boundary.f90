@@ -9,10 +9,8 @@ module class_boundary_ghost
      private
      character(len=:), allocatable :: param_names(:)
    contains
-     ! procedure :: init
      procedure(gen_val), deferred :: generate_values
-     procedure, non_overridable :: get_param_names
-     procedure, non_overridable :: set_param_names
+     procedure :: p_names
   end type boundary_ghost
 
   interface
@@ -28,20 +26,10 @@ module class_boundary_ghost
 
 contains
 
-  function get_param_names(self)
+  function p_names(self)
     class(boundary_ghost) :: self
-    ! character(len=:), allocatable :: get_param_names(:)
-    character(len=:), allocatable :: get_param_names(:)
-
-    get_param_names = self%param_names
-  end function get_param_names
-
-  subroutine set_param_names(self, names)
-    class(boundary_ghost) :: self
-    character(len=*) :: names(:)
-
-    self%param_names = names
-  end subroutine set_param_names
-
+    character(len=:), allocatable :: p_names(:)
+    allocate( character(len=0) :: p_names(0) )
+  end function p_names
 
 end module class_boundary_ghost

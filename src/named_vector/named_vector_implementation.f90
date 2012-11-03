@@ -9,15 +9,12 @@ module class_named_vector_implementation_
   type, public, extends(named_vector) :: named_vector_implementation
      private
      real, pointer :: val(:) => null()
-     integer, allocatable :: shape_(:)
-     class(generic_function), pointer :: initial_ => null()
+     integer :: length_ = 0
    contains
      procedure :: vec
      procedure :: scal
      procedure :: length
-     procedure :: shape
      procedure :: point
-     procedure :: initialize
   end type named_vector_implementation
 
 
@@ -25,13 +22,16 @@ module class_named_vector_implementation_
      module procedure :: nvi_constructor
   end interface named_vector_implementation
 
+  !> @bug made public due to ifort bug if constructor is used in
+  !! boundary/boundary.f90. This line should be removed when the bug
+  !! is resolved
+  public :: nvi_constructor
 
 contains
 
-  function nvi_constructor(name, shape, initial) result(r)
+  function nvi_constructor(name, length) result(r)
     character(len=*), intent(in) :: name
-    integer, intent(in), optional :: shape(:)
-    class(generic_function), intent(in), target, optional :: initial
+    integer, intent(in), optional :: length
 
     type(named_vector_implementation), pointer :: r
 
@@ -39,14 +39,10 @@ contains
 
     r%name = trim(name)
 
-    if( present(shape) ) then
-       r%shape_ = shape
+    if( present(length) ) then
+       r%length_ = length
     else
-       r%shape_ = [integer::]
-    end if
-
-    if( present(initial) ) then
-       r%initial_ => initial
+       r%length_ = 1
     end if
 
   end function nvi_constructor
@@ -64,16 +60,10 @@ contains
     scal => self%val(1)
   end function scal
 
-  function shape(self)
-    class(named_vector_implementation), intent(in) :: self
-    integer, allocatable :: shape(:)
-    shape = self%shape_
-  end function shape
-
   function length(self)
     class(named_vector_implementation), intent(in) :: self
     integer :: length
-    length = product(self%shape_)
+    length = self%length_
   end function length
 
   subroutine point(self, v)
@@ -87,17 +77,6 @@ contains
     self%val => v(1:len)
 
   end subroutine point
-
-
-  subroutine initialize(self, ic)
-    class(named_vector_implementation) :: self
-    class(icicles_user) :: ic
-
-    if( associated(self%initial_) ) then
-       call self%initial_%call(ic)
-    end if
-  end subroutine initialize
-
 
 
 end module class_named_vector_implementation_
