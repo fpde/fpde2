@@ -1,7 +1,6 @@
 module class_named_vector_
 
   use class_named_vector_user_
-  use class_icicles_user_
 
   private
 

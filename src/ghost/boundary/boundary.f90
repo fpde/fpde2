@@ -7,7 +7,6 @@ module class_boundary_ghost
 
   type, public, abstract, extends(boundary) :: boundary_ghost
      private
-     character(len=:), allocatable :: param_names(:)
    contains
      procedure(gen_val), deferred :: generate_values
      procedure :: p_names

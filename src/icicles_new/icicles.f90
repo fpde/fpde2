@@ -1,7 +1,6 @@
 module class_icicles_
 
   use class_icicles_user_
-  use class_named_vector_
   use class_named_vector_user_
 
   private
@@ -24,13 +23,13 @@ module class_icicles_
   abstract interface
 
      subroutine add_i(self, nv)
-       import icicles, named_vector
+       import icicles, named_vector_user
        class(icicles) :: self
-       class(named_vector), target, intent(in) :: nv
+       class(named_vector_user), target, intent(in) :: nv
      end subroutine add_i
 
      function test_i(self, nv)
-       import crit, named_vector, named_vector_user
+       import crit, named_vector_user
        class(crit) :: self
        class(named_vector_user), intent(in) :: nv
        logical :: test_i

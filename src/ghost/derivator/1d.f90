@@ -18,12 +18,15 @@ module class_derivator_g1d
   use class_mesh1d
   use mesh1d_factory
 
+  use class_derivator_g1d_methods
+
   private
 
   type, public, extends(derivator) :: derivator_g1d
      private
      class(coordinates_c1d), pointer :: c_ => null()
      class(mesh1d), pointer :: m_ => null()
+     type(g1d_methods) :: g1d_m
    contains
      procedure :: coordinates => get_c
      procedure :: dx
@@ -86,13 +89,18 @@ contains
 
   ! actual algorithms goes in here
   subroutine dx(self, f, alpha)
+    use class_bbox_user
+    use class_boundary_ghost
     class(derivator_g1d) :: self
     class(named_vector_f) :: f
     integer, intent(in) :: alpha(:,:)
 
     class(named_vector_user), pointer :: xu, dxu
-    real, pointer :: dfv(:,:), fv(:), xv(:), temp(:)
-    integer :: i
+    real, pointer :: dfv(:,:), fv(:), xv(:), dfdxv(:), dfdxv_(:,:)
+    real, pointer :: plv(:,:), prv(:,:)
+    integer :: i, len
+    class(boundary), pointer :: bl, br
+    class(bbox_user), pointer :: bb
 
     if( size(alpha,1) > 1 ) then
        return
@@ -102,13 +110,50 @@ contains
     xv => xu%vec()
     fv => f%vec()
 
+    ! extract boundaries
+    bb => f%bbox()
+    bl => bb%boundary(1)
+    br => bb%boundary(2)
+
+    ! extract boundary parameters
+    plv => bl%rawp()
+    prv => br%rawp()
+
+    ! extract length
+    len = f%length()
+
     do i = 1, size(alpha,2)
        ! this is equivalent to:
        ! dfv => f%dx(alpha(:,i))%vec()
        dxu => f%dx(alpha(:,i))
-       temp => dxu%vec()
-       dfv(1:size(temp),1:1) => temp
-       call self%m_%diff(fv,xv,dfv,alpha(:,i))
+       dfdxv => dxu%vec()
+
+       dfdxv_(1:len,1:1) => dfdxv
+       call self%m_%diff(fv, xv, dfdxv_, alpha(:,i))
+
+       select type(bl)
+       class is(boundary_ghost)
+          call self%g1d_m%dx(&
+               fv,&
+               xv,&
+               dfdxv,&
+               alpha(1,i),&
+               self%m_,&
+               bl,&
+               plv)
+       end select
+
+       select type(br)
+       class is(boundary_ghost)
+          call self%g1d_m%dx(&
+               fv(len:1:-1),&
+               xv(len:1:-1),&
+               dfdxv(len:1:-1),&
+               alpha(1,i),&
+               self%m_,&
+               br,&
+               prv)
+       end select
     end do
 
   end subroutine dx
