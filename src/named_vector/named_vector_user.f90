@@ -10,6 +10,9 @@ module class_named_vector_user_
      procedure(vec_i), deferred :: vec
      procedure(scal_i), deferred :: scal
      procedure(length_i), deferred :: length
+     generic :: assignment(=) => ass_real
+
+     procedure, private :: ass_real
   end type named_vector_user
 
 
@@ -34,5 +37,26 @@ module class_named_vector_user_
      end function length_i
 
   end interface
+
+  public :: nvtor
+
+contains
+
+  subroutine ass_real(self, v)
+    class(named_vector_user), intent(inout) :: self
+    real, intent(in) :: v(:)
+
+    real, pointer :: my_v(:)
+
+    my_v => self%vec()
+    my_v = v
+  end subroutine ass_real
+
+
+  function nvtor(nvu) result(r)
+    class(named_vector_user), intent(in) :: nvu
+    real, pointer :: r(:)
+    r => nvu%vec()
+  end function nvtor
 
 end module class_named_vector_user_

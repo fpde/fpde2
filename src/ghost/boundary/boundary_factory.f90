@@ -33,7 +33,7 @@ contains
        return
     end select
 
-    if( .not. associated(s) ) then
+    if( associated(s) ) then
        s%name = nprefix // id
        s%type = tprefix // id
        call s%allocate_params(length)

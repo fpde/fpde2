@@ -45,10 +45,11 @@ module class_named_vector_f_implementation_ghost
    contains
      procedure :: c => get_coordinates
      procedure :: dx
+     procedure :: dx_update
      procedure :: dt => der_t
      procedure :: bbox_param
      procedure :: bbox_nparam
-     procedure :: bbox_update
+     procedure, private :: bbox_update
      procedure :: bbox => get_bbox
   end type named_vector_f_implementation
 
@@ -153,12 +154,26 @@ contains
   end function dx
 
 
-  !! @todo allocate dt_ on the fly
+  subroutine dx_update(self, alpha, ic)
+    class(named_vector_f_implementation) :: self
+    integer, intent(in) :: alpha(:,:)
+    class(icicles_user), intent(in) :: ic
+
+    call self%bbox_update(ic)
+    call self%d_%dx(self,alpha)
+  end subroutine dx_update
+
+
+  !! @todo allocate dt_ on the fly?
   function der_t(self)
     class(named_vector_f_implementation) :: self
 
     class(named_vector_user), pointer :: der_t
+    real, pointer :: dt
 
+    ! if(.not. associated(self%dt_)) then
+    !    self%dt_ => named_vector("dt", length = self%length())
+    ! end if
     der_t => self%dt_
   end function der_t
 

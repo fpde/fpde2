@@ -73,7 +73,13 @@ contains
     integer :: len
 
     len = self%length()
-    if( size(v) < len ) return
+
+    if( size(v) < len ) then
+       call self%loge("point(): Cannot change pointer,&
+            & target too short")
+       return
+    end if
+
     self%val => v(1:len)
 
   end subroutine point

@@ -14,6 +14,7 @@ module class_named_vector_f
    contains
      procedure(dx_i), deferred :: dx
      procedure(dt_i), deferred :: dt
+     procedure(dx_update_i), deferred :: dx_update
      procedure(c_i), deferred  :: c
      procedure(bbox_nparam_i), deferred  :: bbox_nparam
      procedure(bbox_param_i), deferred   :: bbox_param
@@ -23,7 +24,7 @@ module class_named_vector_f
   type, public, abstract, extends(named_vector_f_user) :: named_vector_f
      private
    contains
-     procedure(bbox_update_i ), deferred :: bbox_update
+     ! procedure(bbox_update_i ), deferred :: bbox_update
      procedure(bbox_i ), deferred :: bbox
   end type named_vector_f
 
@@ -46,6 +47,14 @@ module class_named_vector_f
 
        class(named_vector_user), pointer :: dx_i
      end function dx_i
+
+
+     subroutine dx_update_i(self, alpha, ic)
+       import named_vector_f_user, icicles_user
+       class(named_vector_f_user) :: self
+       integer, intent(in) :: alpha(:,:)
+       class(icicles_user), intent(in) :: ic
+     end subroutine dx_update_i
 
 
      function dt_i(self)
@@ -93,5 +102,24 @@ module class_named_vector_f
      end function bbox_i
 
   end interface
+
+  public :: nvtof
+
+contains
+
+  function nvtof(nv) result(r)
+    class(named_vector_user), target, intent(in) :: nv
+    class(named_vector_f), pointer :: r
+
+    r => null()
+
+    select type(nv)
+    class is(named_vector_f)
+       r => nv
+    class default
+       call nv%loge("Conversion to named_vector_f failed due to incomp&
+            &atible type")
+    end select
+  end function nvtof
 
 end module class_named_vector_f

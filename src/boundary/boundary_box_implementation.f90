@@ -60,6 +60,8 @@ contains
        r%boundary_(i)%val => factory(btypes(i), lengths(i))
     end do
 
+    r%name = "bbox"
+
   end function bboxi_new
 
 
@@ -89,8 +91,19 @@ contains
 
     param => null()
     b => self%boundary(id)
-    if( .not. associated(b) ) return
+
+    if( .not. associated(b) ) then
+       call self%loge("param(): Wrong region id")
+       return
+    end if
+
     param => b%p(n)
+
+    if( .not. associated(param) ) then
+       call self%loge("param(): Wrong parameter number")
+       return
+    end if
+
   end function param
 
 

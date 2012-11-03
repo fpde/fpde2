@@ -12,11 +12,13 @@ module class_boundary
 
   type, abstract, public, extends(platonic) :: boundary
      type(p_ptr), allocatable :: p_(:)
+     real, allocatable :: rawp_(:,:)
    contains
      procedure :: p
      procedure :: np
      procedure(p_names_i), deferred :: p_names
      procedure :: allocate_params
+     procedure :: rawp
   end type boundary
 
   abstract interface
@@ -37,9 +39,13 @@ contains
     character(len=:), allocatable :: names(:)
     integer :: i
     type(named_vector_implementation), pointer :: nv
-    real, pointer :: v(:)
+
+    names = self%p_names()
 
     allocate(self%p_(size(names)))
+
+    if(allocated(self%rawp_)) deallocate(self%rawp_)
+    allocate(self%rawp_(size(names),length))
 
     do i = 1, size(names)
        !> @bug nvi_constructor is used explicitely due to the bug in
@@ -53,11 +59,17 @@ contains
        self%p_(i)%val => nv
 
        ! allocate the memory for the parameters
-       allocate(v(length))
-       call nv%point(v)
+       call nv%point(self%rawp_(i,:))
     end do
 
   end subroutine allocate_params
+
+
+  function rawp(self)
+    class(boundary), target :: self
+    real, pointer :: rawp(:,:)
+    rawp => self%rawp_
+  end function rawp
 
 
   function p(self, id)

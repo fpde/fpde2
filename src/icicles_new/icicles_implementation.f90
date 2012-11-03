@@ -62,14 +62,25 @@ contains
 
   subroutine add(self, nv)
     class(icicles_implementation) :: self
-    class(named_vector), target, intent(in) :: nv
+    class(named_vector_user), target, intent(in) :: nv
 
     type(nv_pointer), allocatable :: nv_temp(:)
 
+    class(named_vector), pointer :: nv_
+    type(nv_pointer) :: nvp
+
     if( .not. allocated(self%vectors) ) allocate(self%vectors(0))
 
-    nv_temp = [ self%vectors, nv_pointer(val = nv) ]
+    select type(nv)
+    class is(named_vector)
+       nv_ => nv
+    class default
+       return
+    end select
+
+    nv_temp = [ self%vectors, nv_pointer(val = nv_) ]
     self%vectors = nv_temp
+
   end subroutine add
 
 
