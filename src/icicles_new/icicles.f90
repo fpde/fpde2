@@ -17,6 +17,7 @@ module class_icicles_
      procedure(add_i),     deferred :: add
      procedure(i_point_i), deferred :: point
      procedure(length_i),  deferred :: length
+     procedure(initialize_i), deferred :: initialize
   end type icicles
 
 
@@ -48,6 +49,11 @@ module class_icicles_
        class(crit), optional :: cr
        integer :: length_i
      end function length_i
+
+     subroutine initialize_i(self)
+       import icicles, crit
+       class(icicles), intent(in) :: self
+     end subroutine initialize_i
 
   end interface
 

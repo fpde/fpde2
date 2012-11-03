@@ -62,14 +62,11 @@ module class_named_vector_f_implementation_ghost
 contains
 
   function nvf_constructor&
-       (name, initial, d, btypes, bbox_update, dx, dt) result(r)
+       (name, d, btypes, bbox_update) result(r)
     character(len=*), intent(in)                :: name
-    class(generic_function), intent(in), target :: initial
     class(derivator), intent(in), target        :: d
     character(len=*), intent(in), optional      :: btypes(:)
     class(generic_function), intent(in), target, optional :: bbox_update
-    integer, intent(in), optional               :: dx(:,:)
-    logical, intent(in), optional               :: dt
 
     type(named_vector_f_implementation), pointer :: r
     class(coordinates), pointer :: c
@@ -102,29 +99,7 @@ contains
     r%named_vector_implementation&
          = named_vector_implementation(&
          name = name,&
-         length = length,&
-         initial = initial )
-
-    ! allocate space for differentiation results (only named vectors
-    ! are allocated, not the arrays of reals to store the result)
-    if( present(dx) ) then
-       ! allocate(r%dx_(size(dx,2)))
-       ! associate(d => r%dx_)
-       !   do i = 1, size(dx,2)
-       !      d(i)%val => named_vector_implementation(&
-       !           name    = "d",&
-       !           length  = length)
-       !      d(i)%alpha = dx(:,i)
-       !   end do
-       ! end associate
-    end if
-
-    ! allocate named vector for dt
-    if( present(dt) ) then
-       r%dt_ => named_vector_implementation(&
-            name = "dt",&
-            length = length)
-    end if
+         length = length)
 
   end function nvf_constructor
 
