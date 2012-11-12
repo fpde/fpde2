@@ -1,5 +1,7 @@
 module class_derivator_g1d
 
+  use constants_module
+
   use class_derivator
 
   use class_bbox
@@ -31,12 +33,15 @@ module class_derivator_g1d
      procedure :: coordinates => get_c
      procedure :: dx
      procedure :: bbox => get_bbox
+     procedure :: initialize_x
   end type derivator_g1d
 
 
   interface derivator_g1d
      module procedure :: g1d_new
   end interface derivator_g1d
+
+  public :: g1d_new
 
 
 contains
@@ -47,14 +52,25 @@ contains
 
     type(derivator_g1d), pointer :: r
 
-    integer :: nx
+    integer :: nx, err
 
     nx = var%length()
 
     allocate(r)
 
+    r%name = "derivator_g1d"
     r%c_ => coordinates_c1d(var)
-    r%m_ => mesh1d_new(mesh)
+    r%m_ => mesh1d_new(mesh, err)
+
+    if( err /= FPDE_STATUS_OK ) then
+       call r%loge("derivator_g1d(): Unable to create mesh, wrong id?")
+       !! @bug due to an ifort 13.0.1 bug the result "r" is recognized
+       !! as "associated" despite explicit deallocation
+       !! below. gfortran interprets the result in a proper way.
+       deallocate(r)
+       return
+    end if
+
     call r%m_%init()
 
   end function g1d_new
@@ -73,8 +89,7 @@ contains
 
     class(bbox), pointer :: r
 
-    integer, allocatable :: lengths(:)
-    integer :: nregs
+    integer :: lengths(2)
 
     r => null()
 
@@ -96,7 +111,7 @@ contains
     integer, intent(in) :: alpha(:,:)
 
     class(named_vector_user), pointer :: xu, dxu
-    real, pointer :: dfv(:,:), fv(:), xv(:), dfdxv(:), dfdxv_(:,:)
+    real, pointer :: dfv(:,:), fv(:), xv(:), dfdxv(:)
     real, pointer :: plv(:,:), prv(:,:)
     integer :: i, len
     class(boundary), pointer :: bl, br
@@ -128,8 +143,7 @@ contains
        dxu => f%dx(alpha(:,i))
        dfdxv => dxu%vec()
 
-       dfdxv_(1:len,1:1) => dfdxv
-       call self%m_%diff(fv, xv, dfdxv_, alpha(:,i))
+       call self%m_%diff(fv, xv, dfdxv, alpha(1,i))
 
        select type(bl)
        class is(boundary_ghost)
@@ -157,6 +171,21 @@ contains
     end do
 
   end subroutine dx
+
+
+  subroutine initialize_x(self)
+    class(derivator_g1d) :: self
+
+    integer :: i, nx
+    class(named_vector_user), pointer :: x
+
+    nx =  self%c_%nx()
+    x  => self%c_%var(1)
+
+    !! @todo initialize should use mesh to initialize spatial variables
+
+    x = [((i-1.)/(nx-1.),i=1, nx)]
+  end subroutine initialize_x
 
 
 end module class_derivator_g1d

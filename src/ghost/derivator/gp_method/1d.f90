@@ -22,7 +22,7 @@ contains
 
     integer :: gp
 
-    real, allocatable :: f_(:,:), x_(:,:), dfdx_(:,:)
+    real, allocatable :: f_(:), x_(:), dfdx_(:)
 
     gp = mesh%get_ghost_points(1)
 
@@ -33,30 +33,33 @@ contains
     ! g g O o o o o o o o ...
     ! * * * * *
     !   * * * * *
-    !           ^
+    ! |---------| = dfdx_
+    !     |---... = dfdx
+    !     |-|     = updated section of dfdx
+    !       ^
     ! this is the last point affected by differentiating the ghost
     ! points. Total number of points needed is:
     ! gp + (2*gp+1) -1 = 3*gp
     ! the "-1" comes from one overlapping 'g' and '*' in the last row
 
-    allocate(f_(3*gp,1), x_(3*gp,1), dfdx_(3*gp,1))
+    allocate(f_(3*gp), x_(3*gp), dfdx_(3*gp))
 
-    f_(gp+1:,1) = f(1:)
-    x_(gp+1:,1) = x(1:)
+    f_(gp+1:) = f(1:)
+    x_(gp+1:) = x(1:)
 
-    x_(gp:1:-1,1)    = 2*x(1) - x(2:gp+1)
+    x_(gp:1:-1)    = 2*x(1) - x(2:gp+1)
 
     call b%generate_values(&
-         fin  = f_(gp+1:2*gp+1, :),&
-         fout = f_(gp:1:-1,      :),&
-         xin  = x_(gp+1:2*gp+1, :),&
-         params = p)
+         fin  = f_(gp+1:2*gp+1),&
+         fout = f_(gp:1:    -1),&
+         xin  = x_(gp+1:2*gp+1),&
+         params = p(:,1))
 
     ! actual differentiation
-    call mesh%diff( f_(:,1), x_(:,1), dfdx_, [k])
+    call mesh%diff( f_, x_, dfdx_, k)
 
     ! update the result
-    dfdx(1:2*gp) = dfdx_(gp+1:3*gp,1)
+    dfdx(1:gp) = dfdx_(gp+1:2*gp)
 
   end subroutine calculate_dx
 

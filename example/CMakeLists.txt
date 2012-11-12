@@ -29,8 +29,12 @@ foreach(bin ${examples_list})
     PROPERTIES
     COMPILE_FLAGS
     "${Fortran90_FLAGS}")
+  set_target_properties(${bin}
+    PROPERTIES
+    LINK_FLAGS
+    "${Fortran90_LFLAGS}")
   # link to the helper libraries
-  target_link_libraries(${bin} project_lib_shared ${Fortran90_LFLAGS})
+  target_link_libraries(${bin} project_lib_shared ${libs})
 
   add_dependencies(build_examples ${bin})
 

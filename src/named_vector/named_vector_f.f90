@@ -18,6 +18,11 @@ module class_named_vector_f
      procedure(c_i), deferred  :: c
      procedure(bbox_nparam_i), deferred  :: bbox_nparam
      procedure(bbox_param_i), deferred   :: bbox_param
+
+     ! the following functions combine some commonly used methods
+     ! together for easier usage
+     procedure :: bbox_param_set
+     procedure :: var
   end type named_vector_f_user
 
 
@@ -106,6 +111,39 @@ module class_named_vector_f
   public :: nvtof
 
 contains
+
+  subroutine bbox_param_set(self, id, param, v)
+    class(named_vector_f_user) :: self
+    integer, intent(in) :: id, param
+    real, intent(in) :: v(:)
+
+    class(named_vector_user), pointer :: b
+    class(coordinates), pointer :: co
+
+    b => self%bbox_param(id,param)
+    co => self%c()
+    b = v(co%bregion(id))
+
+  end subroutine bbox_param_set
+
+
+  function var(self, n) result(r)
+    class(named_vector_f_user) :: self
+    integer, intent(in) :: n
+
+    class(named_vector_user), pointer :: r
+
+    class(coordinates), pointer :: co
+
+    r => null()
+
+    co => self%c()
+
+    if( .not. associated(co) ) return
+
+    r => co%var(n)
+  end function var
+
 
   function nvtof(nv) result(r)
     class(named_vector_user), target, intent(in) :: nv

@@ -12,6 +12,7 @@ module class_derivator
      procedure(coordinates_i), deferred :: coordinates
      procedure(bbox_i), deferred :: bbox
      procedure(dx_i), deferred :: dx
+     procedure(initialize_x_i), deferred :: initialize_x
   end type derivator
 
 
@@ -36,6 +37,11 @@ module class_derivator
        class(named_vector_f) :: f
        integer, intent(in) :: alpha(:,:)
      end subroutine dx_i
+
+     subroutine initialize_x_i(self)
+       import derivator
+       class(derivator) :: self
+     end subroutine initialize_x_i
 
   end interface
 

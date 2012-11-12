@@ -52,6 +52,11 @@ contains
     class(named_vector_implementation), intent(in) :: self
     real, pointer :: vec(:)
     vec => self%val
+
+    if( .not. associated(vec) ) then
+       call self%loge("vec(): Trying to extract a null vector")
+    end if
+
   end function vec
 
   function scal(self)

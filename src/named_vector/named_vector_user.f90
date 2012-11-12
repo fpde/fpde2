@@ -49,6 +49,12 @@ contains
     real, pointer :: my_v(:)
 
     my_v => self%vec()
+
+    if( .not. associated(my_v) ) then
+       call self%loge("assignment(=): Trying to assign to a null pointer")
+       return
+    end if
+
     my_v = v
   end subroutine ass_real
 
