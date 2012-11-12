@@ -76,12 +76,20 @@ contains
 
     allocate(r)
 
+    r%name = name
+
     ! assign derivator
     r%d_ => d
 
     ! generate boundary box
     if( present(btypes) ) then
        r%bbox_ => d%bbox(btypes)
+       if( .not. associated(r%bbox_) ) then
+          call r%loge("named_vector_f_implementation(): &
+               &Unable do generate boundary conditions, aborting")
+          deallocate(r)
+          return
+       end if
     end if
 
     ! save the bbox_update function
@@ -161,6 +169,7 @@ contains
 
     call self%bbox_update(ic)
     call self%d_%dx(self,alpha)
+
   end subroutine dx_update
 
 
@@ -215,7 +224,9 @@ contains
     use class_bbox_user
     class(named_vector_f_implementation) :: self
     class(bbox_user), pointer :: r
+
     r => self%bbox_
+
   end function get_bbox
 
 

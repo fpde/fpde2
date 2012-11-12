@@ -25,18 +25,14 @@ contains
   subroutine generate_values(self, fin, fout, xin, params, error)
     class(boundary_ghost_neumann) :: self
     integer, intent(out), optional :: error
-    real, intent(in) :: fin(:,:), xin(:,:), params(:,:)
-    real, intent(out) :: fout(:,:)
+    real, intent(in) :: fin(:), xin(:), params(:)
+    real, intent(out) :: fout(:)
 
-    integer :: n, i, err, nrows
+    integer :: err
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    nrows = size(fout,2)
-
-    do i = 1, nrows
-       fout(:,i) = fin(2:,i)+2*(xin(1,i)-xin(2:,i))*params(i,1)
-    end do
+    fout(:) = fin(2:)+2*(xin(1)-xin(2:))*params(1)
 
   end subroutine generate_values
 
