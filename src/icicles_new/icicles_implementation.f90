@@ -138,6 +138,7 @@ contains
   end function length
 
 
+  !> @todo why doesn't it do allocate(self%vectors(0))?
   subroutine initialize(self)
     class(icicles_implementation), intent(in) :: self
 

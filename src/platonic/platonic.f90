@@ -39,26 +39,26 @@ module class_platonic
 
 contains
 
-  subroutine init(p, error)
-    class(platonic) :: p
+  subroutine init(self, error)
+    class(platonic) :: self
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine init
 
-  subroutine free(p, error)
-    class(platonic) :: p
+  subroutine free(self, error)
+    class(platonic) :: self
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine free
 
-  subroutine from_lua(p, l, error)
-    class(platonic) :: p
+  subroutine from_lua(self, l, error)
+    class(platonic) :: self
     type(flu) :: l
     integer, optional, intent(out) :: error
 
     ! get name
     call flu_get_atomic( l,&
-         char = p%name,&
+         char = self%name,&
          key = TAG_NAME)
 
     if(present(error)) error = FPDE_STATUS_OK

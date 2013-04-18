@@ -13,6 +13,12 @@ module class_named_vector_
 
   abstract interface
 
+     !> The only difference from named_vector_user is the presence of
+     !! point(). This method accepts a 1d array on input and uses it
+     !! to store all the values associated with vector.
+     !!
+     !! @param v target array.
+     !!
      subroutine point_i(self, v)
        import named_vector
        class(named_vector) :: self
