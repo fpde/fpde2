@@ -164,22 +164,33 @@ contains
   end function itoa
 
 
-  subroutine realloc_r2lu(a, lower, upper)
+  !> Resize a 2d array so that its indices cover
+  !! (lo1:up1,lo2:up2). The input array is reallocated only if
+  !! needeed.
+  !!
+  !! @param a array to be resized
+  !! @param lo1
+  !! @param lo2
+  !! @param up1
+  !! @param up2
+  !!
+  !! @return
+  subroutine realloc_r2lu(a, lo1, lo2, up1, up2)
     real, allocatable :: a(:,:)
-    integer, intent(in) :: lower(2), upper(2)
+    integer, intent(in) :: lo1, lo2, up1, up2
 
-    integer :: new_lower(2), new_upper(2), i
+    integer :: lo1_, lo2_, up1_, up2_, i
 
     if(.not. allocated(a)) then
-       allocate(a(lower(1):upper(1),lower(2):upper(2)))
-    else if( .not. any(lbound(a) < lower .or. ubound(a) < upper ) ) then
-    else
-       do i = 1, 2
-          new_lower(i) = min(lbound(a,i), lower(i))
-          new_upper(i) = max(ubound(a,i), upper(i))
-       end do
+       allocate(a(lo1:up1,lo2:up2))
+    else if( lo1 < lbound(a,1) .or. lo2 < lbound(a,2) .or.&
+         &   up1 > ubound(a,1) .or. up2 > ubound(a,2) ) then
+       lo1_ = min(lbound(a,1),lo1)
+       lo2_ = min(lbound(a,2),lo2)
+       up1_ = max(ubound(a,1),up1)
+       up2_ = max(ubound(a,2),up2)
        deallocate(a)
-       allocate(a(new_lower(1):new_upper(1), new_lower(2):new_upper(2)))
+       allocate(a(lo1_:up2_,lo2_:up2_))
     end if
 
   end subroutine realloc_r2lu
