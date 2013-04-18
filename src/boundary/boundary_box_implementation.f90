@@ -1,135 +1,127 @@
 module class_bbox_implementation
 
   use class_bbox
-
   use class_boundary
-  use class_named_vector_
-  use class_named_vector_implementation_
   use class_named_vector_user_
-
-  use class_generic_function
-
-  use names_module
 
   private
 
-  ! @todo move to named_vector_user and rename to
-  ! named_vector_user_ptr?
-  type :: p_ptr
-     class(named_vector), pointer :: val => null()
-  end type p_ptr
-
-
-  type :: b_ptr
+  type :: bptr
      class(boundary), pointer :: val => null()
-     type(p_ptr), allocatable :: params(:)
-  end type b_ptr
+  end type bptr
 
 
   type, public, extends(bbox) :: bbox_implementation
      private
-     type(b_ptr), allocatable :: entries(:,:)
+     type(bptr), allocatable :: boundary_(:)
    contains
      procedure :: boundary => get_boundary
-     procedure :: param => get_parameter
-     procedure :: num_param => get_num_parameter
+     procedure :: param
+     procedure :: num_param
+   contains
+
   end type bbox_implementation
 
 
-  interface bbox_implementation
-     module procedure :: gbbi_constructor
-  end interface bbox_implementation
-
-
   abstract interface
-     function bfac_i(id, error)
+     function bfac_i(id, length, error)
        import boundary
        character(len=*), intent(in) :: id
+       integer, intent(in) :: length
        integer, intent(out), optional :: error
        class(boundary), pointer :: bfac_i
      end function bfac_i
   end interface
 
 
+  interface bbox_implementation
+     module procedure :: bboxi_new
+  end interface bbox_implementation
+
+
 contains
 
+  function bboxi_new(btypes, factory, lengths) result(r)
+    character(len=*), intent(in) :: btypes(:)
+    integer, intent(in) :: lengths(:)
+    procedure(bfac_i) :: factory
 
-  function gbbi_constructor(shape, update, default, btypes, factory) result(r)
-    integer, intent(in) :: shape(:)
-    class(generic_function), intent(in), target :: update
-    character(len=*), intent(in) :: default
-    type(btype), intent(in), optional :: btypes(:)
-    procedure(bfac_i), intent(in), pointer :: factory
+    class(bbox_implementation), pointer :: r
 
-    type(bbox_implementation), pointer :: r
+    integer :: i
 
-    integer :: dim, i, x, side, np, k
-    character(len=:), allocatable :: pname
+    if( size(btypes) /= size(lengths) ) return
 
     allocate(r)
 
-    dim = size(shape)
+    allocate(r%boundary_(size(btypes)))
 
-    allocate(r%entries(2,dim))
-
-    if( present(btypes) ) then
-       do i = 1, size(btypes)
-          r%entries(btypes(i)%side,btypes(i)%x)%val &
-               => factory(btypes(i)%type)
-       end do
-    end if
-
-    do x = 1, dim
-       do side = 1, 2
-          associate(e => r%entries(side,x))
-            if( .not. associated(e%val) ) e%val => factory(default)
-            np = 0 ! @todo np = b%params()
-            allocate(e%params(np))
-            do k = 1, np
-               pname = "p" ! @todo pname = "b%param_name(k)"
-               pname = boundary_param_name(x,side,k,pname)
-               e%params(k)%val => named_vector_implementation(&
-                    shape = [shape(1:x-1),1,shape(x+1:)],&
-                    name = pname)
-            end do
-          end associate
-       end do
+    do i = 1, size(btypes)
+       r%boundary_(i)%val => factory(btypes(i), lengths(i))
     end do
 
-  end function gbbi_constructor
+    r%name = "bbox"
+
+  end function bboxi_new
 
 
-  function get_boundary(self, x, side)
-    class(bbox_implementation) :: self
-    integer, intent(in) :: x, side
+  function get_boundary(self, id)
+    class(bbox_implementation), target :: self
+    integer, intent(in) :: id
 
     class(boundary), pointer :: get_boundary
 
-    get_boundary => self%entries(side,x)%val
+    get_boundary => null()
+
+    if(.not. allocated(self%boundary_)) return
+    if( id < 1 .or. id > size(self%boundary_)) return
+
+    get_boundary => self%boundary_(id)%val
 
   end function get_boundary
 
 
-  function get_parameter(self, x, side, num)
-    class(bbox_implementation), intent(in), target :: self
-    integer, intent(in) :: x, side, num
+  function param(self, id, n)
+    class(bbox_implementation), intent(in) :: self
+    integer, intent(in) :: id, n
 
-    class(named_vector_user), pointer :: get_parameter
+    class(named_vector_user), pointer :: param
 
-    get_parameter => self%entries(side, x)%params(num)%val
+    class(boundary), pointer :: b
 
-  end function get_parameter
+    param => null()
+    b => self%boundary(id)
+
+    if( .not. associated(b) ) then
+       call self%loge("param(): Wrong region id")
+       return
+    end if
+
+    param => b%p(n)
+
+    if( .not. associated(param) ) then
+       call self%loge("param(): Wrong parameter number")
+       return
+    end if
+
+  end function param
 
 
-  function get_num_parameter(self, x, side) result(r)
-    class(bbox_implementation), intent(in), target :: self
-    integer, intent(in) :: x, side
+  function num_param(self, id)
+    class(bbox_implementation), intent(in) :: self
+    integer, intent(in) :: id
 
-    integer :: r
+    integer :: num_param
 
-    r = size(self%entries(side,x)%params)
+    class(boundary), pointer :: b
 
-  end function get_num_parameter
+    num_param = 0
 
+    b =>  self%boundary(id)
+    if( .not. associated(b) ) return
+
+    num_param = b%np()
+
+  end function num_param
 
 end module class_bbox_implementation

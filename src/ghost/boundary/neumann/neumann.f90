@@ -6,40 +6,33 @@ module class_boundary_ghost_neumann
 
   private
 
-  character(len=*), parameter :: a = "z"
-
   type, public, extends(boundary_ghost) :: boundary_ghost_neumann
    contains
-     ! procedure :: init
      procedure :: generate_values
+     procedure :: p_names
   end type boundary_ghost_neumann
 
 contains
 
-  ! subroutine init(p, error)
-  !   class(boundary_neumann), target :: p
-  !   integer, optional, intent(out) :: error
-  !   if(present(error)) error = FPDE_STATUS_OK
-  !   p%name = "Boundary_neumann"
-  !   call p%set_param_names([a])
-  ! end subroutine init
+
+  function p_names(self)
+    class(boundary_ghost_neumann) :: self
+    character(len=:), allocatable :: p_names(:)
+    p_names = ["a"]
+  end function p_names
 
 
   subroutine generate_values(self, fin, fout, xin, params, error)
     class(boundary_ghost_neumann) :: self
     integer, intent(out), optional :: error
-    real, intent(in) :: fin(:,:), xin(:,:), params(:,:)
-    real, intent(out) :: fout(:,:)
+    real, intent(in) :: fin(:), xin(:), params(:)
+    real, intent(out) :: fout(:)
 
-    integer :: n, i, err, nrows
+    integer :: err
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    nrows = size(fout,2)
-
-    do i = 1, nrows
-       fout(:,i) = fin(2:,i)+2*(xin(1,i)-xin(2:,i))*params(i,1)
-    end do
+    fout(:) = fin(2:)+2*(xin(1)-xin(2:))*params(1)
 
   end subroutine generate_values
 

@@ -1,6 +1,5 @@
 module class_named_vector_t
 
-  use class_generic_function
   use class_named_vector_implementation_
 
   private
@@ -20,9 +19,8 @@ module class_named_vector_t
 
 contains
 
-  function nvt_constructor(name, initial, tmax) result(r)
+  function nvt_constructor(name, tmax) result(r)
     character(len=*), intent(in) :: name
-    class(generic_function), target, intent(in) :: initial
     real, intent(in) :: tmax
 
     type(named_vector_t), pointer :: r
@@ -30,7 +28,7 @@ contains
     allocate(r)
 
     r%named_vector_implementation = named_vector_implementation(&
-         name = name, initial = initial, shape = [integer::])
+         name = name, length = 1)
 
     r%tmax_ = tmax
   end function nvt_constructor

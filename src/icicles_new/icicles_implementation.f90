@@ -4,6 +4,7 @@ module class_icicles_implementation
   use class_icicles_user_
   use class_named_vector_
   use class_named_vector_user_
+  use class_generic_function
 
   private
 
@@ -13,15 +14,31 @@ module class_icicles_implementation
 
   type, public, extends(icicles) :: icicles_implementation
      private
+     class(generic_function), pointer :: init_
      type(nv_pointer), allocatable :: vectors(:)
    contains
      procedure :: add
      procedure :: point
      procedure :: length
      procedure :: get
+     procedure :: initialize
   end type icicles_implementation
 
+
+  interface icicles_implementation
+     module procedure :: ici_new
+  end interface icicles_implementation
+
 contains
+
+  function ici_new(init) result(r)
+    class(generic_function), target :: init
+    class(icicles_implementation), pointer :: r
+
+    allocate(r)
+    r%init_ => init
+  end function ici_new
+
 
   function get(self, name)
     class(icicles_implementation), intent(in) :: self
@@ -45,14 +62,25 @@ contains
 
   subroutine add(self, nv)
     class(icicles_implementation) :: self
-    class(named_vector), target, intent(in) :: nv
+    class(named_vector_user), target, intent(in) :: nv
 
     type(nv_pointer), allocatable :: nv_temp(:)
 
+    class(named_vector), pointer :: nv_
+    type(nv_pointer) :: nvp
+
     if( .not. allocated(self%vectors) ) allocate(self%vectors(0))
 
-    nv_temp = [ self%vectors, nv_pointer(val = nv) ]
+    select type(nv)
+    class is(named_vector)
+       nv_ => nv
+    class default
+       return
+    end select
+
+    nv_temp = [ self%vectors, nv_pointer(val = nv_) ]
     self%vectors = nv_temp
+
   end subroutine add
 
 
@@ -108,6 +136,14 @@ contains
     end associate
 
   end function length
+
+
+  !> @todo why doesn't it do allocate(self%vectors(0))?
+  subroutine initialize(self)
+    class(icicles_implementation), intent(in) :: self
+
+    call self%init_%call(self)
+  end subroutine initialize
 
 
 end module class_icicles_implementation

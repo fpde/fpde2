@@ -49,6 +49,7 @@ include_directories(${LIBRARY_OUTPUT_PATH})
 
 # Set the compiler flags using a configuration file
 set(Fortran90_FLAGS "@${PROJECT_SOURCE_DIR}/config/ifort/compiler.cfg")
+set(Fortran90_LFLAGS "@${PROJECT_SOURCE_DIR}/config/ifort/linker.cfg")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config ${CMAKE_MODULE_PATH})
 
@@ -60,7 +61,7 @@ find_package(MKL REQUIRED)
 include_directories(${MKL_INCLUDE_DIRS})
 
 # define linker flags
-set(Fortran90_LFLAGS ${LUAJIT_LIBRARY}; ${MKL_LIBRARIES})
+set(libs ${LUAJIT_LIBRARY}; ${MKL_LIBRARIES})
 
 # add a subdirectory with source files for the project
 add_subdirectory(src)

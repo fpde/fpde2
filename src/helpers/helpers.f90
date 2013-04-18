@@ -163,4 +163,52 @@ contains
     itoa = trim(adjustl(temp))
   end function itoa
 
+
+  subroutine realloc_r2lu(a, lower, upper)
+    real, allocatable :: a(:,:)
+    integer, intent(in) :: lower(2), upper(2)
+
+    integer :: new_lower(2), new_upper(2), i
+
+    if(.not. allocated(a)) then
+       allocate(a(lower(1):upper(1),lower(2):upper(2)))
+    else if( .not. any(lbound(a) < lower .or. ubound(a) < upper ) ) then
+    else
+       do i = 1, 2
+          new_lower(i) = min(lbound(a,i), lower(i))
+          new_upper(i) = max(ubound(a,i), upper(i))
+       end do
+       deallocate(a)
+       allocate(a(new_lower(1):new_upper(1), new_lower(2):new_upper(2)))
+    end if
+
+  end subroutine realloc_r2lu
+
+
+  subroutine print_vec2d(a)
+    real, intent(in) :: a(:,:)
+
+    integer :: i
+
+    do i = lbound(a,2), ubound(a,2)
+       print '(*(f6.3,"  "))', a(:,i)
+    end do
+    print *, ""
+
+  end subroutine print_vec2d
+
+
+  !! @todo create a print method for coordinates
+  subroutine print_vec1d_as_2d(a, n)
+    real, intent(in), target :: a(:)
+    integer, intent(in) :: n(2)
+
+    integer :: i
+    real, pointer :: b(:,:)
+    b(1:n(1), 1:n(2)) => a
+
+    call print_vec2d(b)
+
+  end subroutine print_vec1d_as_2d
+
 end module helper_module

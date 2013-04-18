@@ -33,7 +33,7 @@ module class_mesh
      procedure :: get_calculable_derivatives
      procedure, non_overridable :: set_ghost_points
      procedure, non_overridable :: set_calculable_derivatives
-     procedure(diff_global_interface), deferred :: diff_global
+     ! procedure(diff_global_interface), deferred :: diff_global
      procedure(get_dim_interface), deferred :: get_dim
      ! procedure(diff_point_interface ), deferred :: diff_point
   end type mesh

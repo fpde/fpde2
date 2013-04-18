@@ -7,41 +7,46 @@ module class_boundary_ghost
 
   type, public, abstract, extends(boundary) :: boundary_ghost
      private
-     character(len=:), allocatable :: param_names(:)
    contains
-     ! procedure :: init
      procedure(gen_val), deferred :: generate_values
-     procedure, non_overridable :: get_param_names
-     procedure, non_overridable :: set_param_names
+     procedure :: p_names
   end type boundary_ghost
 
   interface
      subroutine gen_val(self, fin, fout, xin, params, error)
        import boundary_ghost
        class(boundary_ghost) :: self
-       real, intent(in) :: params(:,:)
-       real, intent(in) :: fin(:,:), xin(:,:)
-       real, intent(out) :: fout(:,:)
+       real, intent(in) :: params(:)
+       real, intent(in) :: fin(:), xin(:)
+       real, intent(out) :: fout(:)
        integer, intent(out), optional :: error
      end subroutine gen_val
   end interface
 
+  public :: toghost
+
 contains
 
-  function get_param_names(self)
+  function p_names(self)
     class(boundary_ghost) :: self
-    ! character(len=:), allocatable :: get_param_names(:)
-    character(len=:), allocatable :: get_param_names(:)
+    character(len=:), allocatable :: p_names(:)
+    allocate( character(len=0) :: p_names(0) )
+  end function p_names
 
-    get_param_names = self%param_names
-  end function get_param_names
 
-  subroutine set_param_names(self, names)
-    class(boundary_ghost) :: self
-    character(len=*) :: names(:)
+  function toghost(b) result(r)
+    class(boundary), target :: b
 
-    self%param_names = names
-  end subroutine set_param_names
+    class(boundary_ghost), pointer :: r
+
+    select type(b)
+    class is(boundary_ghost)
+       r => b
+    class default
+       call b%loge("toghost(): Unable to convert to boundary_ghost")
+    end select
+
+  end function toghost
 
 
 end module class_boundary_ghost
