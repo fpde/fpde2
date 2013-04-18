@@ -190,8 +190,8 @@ contains
   end subroutine call
 
 
-  subroutine from_lua(p, l, error)
-    class(generic_function_from_object) :: p
+  subroutine from_lua(self, l, error)
+    class(generic_function_from_object) :: self
     type(flu) :: l
     integer, optional, intent(out) :: error
 
@@ -200,7 +200,7 @@ contains
     integer :: err
 
     if(present(error)) error = FPDE_STATUS_ERROR
-    call p%platonic%from_lua(l)
+    call self%platonic%from_lua(l)
 
     call flu_get_atomic(l,&
          char  = libname,&
@@ -208,7 +208,7 @@ contains
          error = err )
 
     if( err /= FPDE_STATUS_OK ) then
-       call p%log(FPDE_LOG_ERROR,&
+       call self%log(FPDE_LOG_ERROR,&
        "Invalid or missing object file name")
        return
     end if
@@ -219,7 +219,7 @@ contains
          error = err )
 
     if( err /= FPDE_STATUS_OK ) then
-       call p%log(FPDE_LOG_ERROR,&
+       call self%log(FPDE_LOG_ERROR,&
        "Invalid or missing symbol name")
        return
     end if
@@ -227,20 +227,20 @@ contains
     gffo = generic_function_from_object(&
          lib = libname, func = funcname)
 
-    p%handle = gffo%handle
-    p%fun => gffo%fun
+    self%handle = gffo%handle
+    self%fun => gffo%fun
 
     if(present(error)) error = FPDE_STATUS_OK
 
   end subroutine from_lua
 
 
-  subroutine free(p, error)
-    class(generic_function_from_object) :: p
+  subroutine free(self, error)
+    class(generic_function_from_object) :: self
     integer, optional, intent(out) :: error
 
-    if(c_associated(p%handle)) then
-       call dlclose(p%handle)
+    if(c_associated(self%handle)) then
+       call dlclose(self%handle)
     end if
 
     if(present(error)) error = FPDE_STATUS_OK

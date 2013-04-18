@@ -25,20 +25,20 @@ module class_mesh1d_sfd3pt
 
 contains
 
-  subroutine init( p, error )
-    class(mesh1d_sfd3pt) :: p
+  subroutine init( self, error )
+    class(mesh1d_sfd3pt) :: self
     integer, optional, intent(out) :: error
 
     integer :: dx(1,2)
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    p % name = "sfd3pt"
-    call p % set_ghost_points([2])
+    self % name = "sfd3pt"
+    call self % set_ghost_points([2])
 
     dx(1,1) = 1
     dx(1,2) = 2
-    call p % set_calculable_derivatives(dx)
+    call self % set_calculable_derivatives(dx)
 
   end subroutine init
 
