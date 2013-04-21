@@ -12,16 +12,16 @@
 !!
 module class_named_vector_f_implementation_ghost
 
-  use class_named_vector_
-  use class_named_vector_user_
-  use class_named_vector_implementation_
+  use class_named_vector
+  use class_named_vector_user
+  use class_named_vector_implementation
   use class_named_vector_f
 
   use class_generic_function
 
   use class_bbox
 
-  use class_icicles_user_
+  use class_icicles_user
 
   use class_derivator
   use class_coordinates
@@ -115,7 +115,7 @@ contains
 
   !! @todo allocate results of dx() on the fly
   function dx(self, alpha)
-    use class_named_vector_user_
+    use class_named_vector_user
 
     class(named_vector_f_implementation) :: self
     integer, intent(in) :: alpha(:)

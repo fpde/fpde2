@@ -2,7 +2,7 @@ module class_bbox_user
 
   use class_platonic
   use class_boundary
-  use class_named_vector_user_
+  use class_named_vector_user
 
   private
 

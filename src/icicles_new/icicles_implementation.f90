@@ -1,9 +1,9 @@
 module class_icicles_implementation
 
-  use class_icicles_
-  use class_icicles_user_
-  use class_named_vector_
-  use class_named_vector_user_
+  use class_icicles
+  use class_icicles_user
+  use class_named_vector
+  use class_named_vector_user
   use class_generic_function
 
   private

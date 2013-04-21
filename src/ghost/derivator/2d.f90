@@ -13,7 +13,7 @@ module class_derivator_g2d
   use ghost_boundary_factory
 
   use class_named_vector_f
-  use class_named_vector_user_
+  use class_named_vector_user
 
   use class_mesh2d
 
