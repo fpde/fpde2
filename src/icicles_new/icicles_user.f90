@@ -1,6 +1,6 @@
-module class_icicles_user_
+module class_icicles_user
 
-  use class_named_vector_user_
+  use class_named_vector_user
   use class_platonic
 
   private
@@ -23,4 +23,4 @@ module class_icicles_user_
   end interface
 
 
-end module class_icicles_user_
+end module class_icicles_user

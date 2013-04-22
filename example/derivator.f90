@@ -1,6 +1,6 @@
 module init
-  use class_named_vector_user_
-  use class_icicles_user_
+  use class_named_vector_user
+  use class_icicles_user
   use class_named_vector_f
   use class_coordinates
 
@@ -59,8 +59,8 @@ program derivator_test
   use class_icicles_
   use class_icicles_implementation
 
-  use class_named_vector_user_
-  use class_named_vector_implementation_
+  use class_named_vector_user
+  use class_named_vector_implementation
   use class_named_vector_f_implementation_ghost
 
   use class_generic_function

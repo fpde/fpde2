@@ -1,8 +1,8 @@
 module class_boundary
 
   use class_platonic
-  use class_named_vector_user_
-  use class_named_vector_implementation_
+  use class_named_vector_user
+  use class_named_vector_implementation
 
   private
 

@@ -10,7 +10,7 @@
 module class_generic_function
 
   use class_platonic
-  use class_icicles_user_
+  use class_icicles_user
 
   private
 

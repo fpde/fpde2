@@ -1,4 +1,4 @@
-module class_named_vector_user_
+module class_named_vector_user
 
   use class_platonic
 
@@ -106,4 +106,4 @@ contains
     r => nvu%vec()
   end function nvtor
 
-end module class_named_vector_user_
+end module class_named_vector_user

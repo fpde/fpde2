@@ -2,8 +2,8 @@ module class_coordinates_c1d
 
   use class_regions
   use class_coordinates_c
-  use class_named_vector_
-  use class_named_vector_user_
+  use class_named_vector
+  use class_named_vector_user
 
   private
 

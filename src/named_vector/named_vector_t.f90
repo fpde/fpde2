@@ -1,6 +1,6 @@
 module class_named_vector_t
 
-  use class_named_vector_implementation_
+  use class_named_vector_implementation
 
   private
 

@@ -1,6 +1,6 @@
-module class_named_vector_
+module class_named_vector
 
-  use class_named_vector_user_
+  use class_named_vector_user
 
   private
 
@@ -28,4 +28,4 @@ module class_named_vector_
   end interface
 
 
-end module class_named_vector_
+end module class_named_vector
