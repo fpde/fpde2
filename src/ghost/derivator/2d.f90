@@ -131,6 +131,9 @@ contains
   end subroutine dx
 
 
+  !> Fills the vectors x and y with particular variables based on the
+  !! mesh size returned by nx()
+  !!
   subroutine initialize_x(self)
     class(derivator_g2d) :: self
 
