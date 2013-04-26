@@ -1,15 +1,6 @@
 program event_machine_test
 
-  ! those two modules are not used explicitely, but ifort is so buggy
-  ! that it won't compile without them
-  use class_event
-  use class_action
-
-
-  use class_event_machine
-  use class_event_true
-  use class_event_logical
-  use class_action_hello
+  use events
   use class_icicles
   use class_icicles_implementation
   use class_generic_function_dummy
