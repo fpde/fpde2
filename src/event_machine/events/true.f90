@@ -55,7 +55,7 @@ contains
     val = .true.
 
     call lua_getfield(l,index,"val")     ! val
-    call flu_get_scalar(l, -1, val, err) ! val
+    call flu_get(l, -1, val, err)        ! val
     call lua_pop(l,1)                    !
 
     if( err == FPDE_STATUS_OK ) then

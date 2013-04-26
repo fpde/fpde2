@@ -51,10 +51,13 @@ contains
     type(action_hello), pointer :: r
 
     character(len=100) :: text
+    integer :: err
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    call flu_get_atomic(l, index, "text", char = text)
+    call lua_getfield(l, index, "text") !text
+    call flu_get(l,-1,text)             !text
+    call lua_pop(l,1)                   !
 
     r => ah_new(text)
 
