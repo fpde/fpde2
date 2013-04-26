@@ -22,6 +22,8 @@ module class_event_machine
    contains
      procedure :: add
      procedure :: execute
+     procedure :: start
+     procedure :: stop
   end type event_machine
 
   interface event_machine
@@ -33,6 +35,7 @@ contains
   function em_new() result(r)
     type(event_machine), pointer :: r
     allocate(r)
+    r%name = "Event machnie"
     allocate(r%events(0))
   end function em_new
 
@@ -75,7 +78,7 @@ contains
   !! returns immediately after the error skipping remaining events and
   !! actions.
   !!
-  !! @param ic icicles passed to tests and actions
+  !! @param ic icicles passed to events and actions
   !! @param error
   !!
   subroutine execute(em, ic, error)
@@ -91,7 +94,7 @@ contains
 
     associate(evs => em%events)
       events_loop: do i = 1, size(evs)
-         test = evs(i)%val%test(ic, err)
+         test = evs(i)%val%try_test(ic, err)
 
          if( err /= FPDE_STATUS_OK ) then
             exit events_loop
@@ -100,7 +103,7 @@ contains
          if( test ) then
             associate(acs => evs(i)%actions)
               actions_loop: do j = 1, size(acs)
-                 call acs(j)%val%execute(ic, err)
+                 call acs(j)%val%try_execute(ic, err)
                  if( err /= FPDE_STATUS_OK ) exit events_loop
               end do actions_loop
             end associate
@@ -117,5 +120,74 @@ contains
     end if
 
   end subroutine execute
+
+
+  !> Tries to start all of the events and actions
+  !!
+  !! @param ic icicles passed to events and actions
+  !! @param error
+  !!
+  subroutine start(em, ic, error)
+    class(event_machine) :: em
+    class(icicles_user) :: ic
+    integer, optional, intent(out) :: error
+
+    integer :: i, j, err
+    logical :: failed = .false.
+
+    associate(evs => em%events)
+
+      do i = 1, size(evs)
+         call evs(i)%val%try_start(ic, err)
+         failed = failed .or. err /= FPDE_STATUS_OK
+
+         ! start the actions
+         do j =1, size(evs(i)%actions)
+            call evs(i)%actions(j)%val%try_start(ic, err)
+            failed = failed .or. err /= FPDE_STATUS_OK
+         end do
+      end do
+
+    end associate
+
+    if(present(error) .and. .not. failed) error = FPDE_STATUS_OK
+    if(present(error) .and.       failed) error = FPDE_STATUS_ERROR
+
+  end subroutine start
+
+
+  !> Tries to stop all of the events and actions
+  !!
+  !! @param ic icicles passed to events and actions
+  !! @param error
+  !!
+  subroutine stop(em, ic, error)
+    class(event_machine) :: em
+    class(icicles_user) :: ic
+    integer, optional, intent(out) :: error
+
+    integer :: i, j, err
+    logical :: failed = .false.
+
+    associate(evs => em%events)
+
+      do i = 1, size(evs)
+         call evs(i)%val%try_stop(ic, err)
+         failed = failed .or. err /= FPDE_STATUS_OK
+
+         ! start the actions
+         do j =1, size(evs(i)%actions)
+            call evs(i)%actions(j)%val%try_stop(ic, err)
+            failed = failed .or. err /= FPDE_STATUS_OK
+         end do
+      end do
+
+    end associate
+
+    if(present(error) .and. .not. failed) error = FPDE_STATUS_OK
+    if(present(error) .and.       failed) error = FPDE_STATUS_ERROR
+
+  end subroutine stop
+
 
 end module class_event_machine

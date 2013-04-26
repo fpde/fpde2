@@ -10,7 +10,9 @@ module class_action_hello
      private
      character(len=:), allocatable :: text
      contains
+       procedure :: start
        procedure :: execute
+       procedure :: stop
   end type action_hello
 
   interface action_hello
@@ -25,6 +27,8 @@ contains
 
     allocate(r)
 
+    r%name = "Action: Hello world!"
+
     if(present(text)) then
        r%text = text
     else
@@ -34,12 +38,28 @@ contains
   end function ah_new
 
 
-  subroutine execute(ac, ic, error)
-    class(action_hello) :: ac
+  subroutine execute(self, ic, error)
+    class(action_hello) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
-    print *, ac%text
+    print *, self%text
   end subroutine execute
+
+  subroutine start(self, ic, error)
+    class(action_hello) :: self
+    class(icicles_user) :: ic
+    integer, optional, intent(out) :: error
+    if(present(error)) error = FPDE_STATUS_OK
+    print *,   "Start: ", self%text
+  end subroutine start
+
+  subroutine stop(self, ic, error)
+    class(action_hello) :: self
+    class(icicles_user) :: ic
+    integer, optional, intent(out) :: error
+    if(present(error)) error = FPDE_STATUS_OK
+    print *,   "Stop: ", self%text
+  end subroutine stop
 
 end module class_action_hello

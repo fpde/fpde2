@@ -24,6 +24,8 @@ contains
 
     integer :: err1, err2
 
+    err1 = FPDE_STATUS_OK
+    err2 = FPDE_STATUS_OK
     if(present(error)) error = FPDE_STATUS_OK
 
     if(associated(self%op1)) call self%op1%start(ic, err1)
@@ -42,6 +44,8 @@ contains
 
     integer :: err1, err2
 
+    err1 = FPDE_STATUS_OK
+    err2 = FPDE_STATUS_OK
     if(present(error)) error = FPDE_STATUS_OK
 
     if(associated(self%op1)) call self%op1%stop(ic, err1)

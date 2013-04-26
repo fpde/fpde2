@@ -27,6 +27,8 @@ program event_machine_test
   call em%add(evf .or.  evt, action_hello(text = "T or F"))
   call em%add(evt .and. evt, action_hello(text = "T and T"))
   call em%add(.not. evf, action_hello(text = "not F"))
+  call em%start(ic)
   call em%execute(ic)
+  call em%stop(ic)
 
 end program event_machine_test
