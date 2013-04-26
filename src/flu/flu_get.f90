@@ -182,7 +182,7 @@ contains
        if(present(error)) error = FPDE_STATUS_OK
     else
        call l%log(FPDE_LOG_ERROR,&
-            "Invalid type, number expected")
+            "Invalid type, boolean expected")
     end if
 
   end subroutine flu_get_scalar_logical
