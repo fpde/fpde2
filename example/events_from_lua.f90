@@ -7,8 +7,8 @@ program events_from_lua
   type(flu) :: l
   class(action), pointer :: ac
   class(event), pointer :: ev
-  integer :: n, idx
-  real, allocatable :: tab(:)
+  integer :: n, i, idx
+  real, allocatable :: tab(:), tab2d(:,:)
 
   call set_log_level(FPDE_LOG_DEBUG)
   l = luaL_newstate()
@@ -23,20 +23,18 @@ program events_from_lua
   ev => event_true(l, -1)
 
   call lua_getglobal(l,"tab")
-
-  idx = lua_absindex(l,-1)
-  n = lua_rawlen(l,idx)
-  allocate(tab(n))
-  do i = 1, n
-     call lua_pushinteger(l,i)
-     call lua_gettable(l,idx)
-     call flu_get_scalar(l,-1,tab(i))
-  end do
-  call lua_pop(l,n)
+  call flu_get(l,-1,tab)
 
   print *, tab
 
-  call lua_pop(l,3)
+  call lua_getglobal(l,"tab2d")
+  call flu_get(l,-1,tab2d)
+
+  do i = 1, size(tab2d,2)
+     print *, tab2d(:,i)
+  end do
+
+  call lua_pop(l,4)
 
   call lua_close(l)
 

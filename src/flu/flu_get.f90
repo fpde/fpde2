@@ -178,6 +178,7 @@ contains
     integer :: idx, n, i
     logical :: isnumber = .true.
     character(100) :: str
+    real :: ti
 
     idx = lua_absindex(l,index)
 
@@ -191,27 +192,27 @@ contains
 
     n = lua_rawlen(l,idx)
 
+    ! clear the table
+    table = [real::]
+
     do i = 1, n
        call lua_pushinteger(l,i) ! i items on the stack
        call lua_gettable(l,idx)
 
        ! if any of the entries is a non-number return an error
-       if( lua_type(l, index) /= C_LUA_TNUMBER ) then
+       if( lua_type(l, -1) /= C_LUA_TNUMBER ) then
           write(str,*) i
           call l%loge("Expected number at position &
-               &["//adjustl(str)//"] in Lua table.")
+               &["//trim(adjustl(str))//"] in table.")
           ! undo the pushes
           call lua_pop(l,i)
           return
        end if
 
-    end do
+       ! if its a number grow the table
+       call flu_get_scalar_real(l,-1,ti)
+       table = [table, ti]
 
-    if(allocated(table)) deallocate(table)
-    allocate(table(n))
-
-    do i = 1, n
-       call flu_get_scalar_real(l, i-n-1, table(i))
     end do
 
     call lua_pop(l,n)
@@ -227,6 +228,71 @@ contains
     real, allocatable, intent(out) :: table(:,:)
     integer, optional, intent(out) :: error
 
+    integer :: idx, n, m, i, err
+    logical :: isnumber = .true.
+    character(100) :: str
+    real, allocatable :: ti(:), table_(:)
+
+    idx = lua_absindex(l,index)
+
+    ! default to error
+    if( present(error) ) error = FPDE_STATUS_ERROR
+
+    if( lua_type(l, idx) /= C_LUA_TTABLE ) then
+       call l%loge("Invalid type, table expected")
+       return
+    end if
+
+    n = lua_rawlen(l,idx)
+
+    ! clear the table
+    table  = reshape([real::],[0,0])
+    table_ = [real::]
+
+    do i = 1, n
+       call lua_pushinteger(l,i) ! i items on the stack
+       call lua_gettable(l,idx)
+
+       ! if any of the entries is a non-number return an error
+       if( lua_type(l, -1) /= C_LUA_TTABLE ) then
+          write(str,*) i
+          call l%loge("Expected table at position &
+               &["//trim(adjustl(str))//"].")
+          ! undo the pushes
+          call lua_pop(l,i)
+          return
+       end if
+
+       ! try to fetch the subvector ti
+       call flu_get_array1d_real(l,-1,ti,err)
+
+       if( err /= FPDE_STATUS_OK ) then
+          write(str,*) i
+          call l%loge("Unable to fetch row &
+               &["//trim(adjustl(str))//"].")
+          ! undo the pushes
+          call lua_pop(l,i)
+       end if
+
+       ! set the size of ti from the first row
+       if( i == 1 ) m  = size(ti)
+
+       if( m /= size(ti) ) then
+          write(str,*) i
+          call l%loge("Length of row ["//trim(adjustl(str))&
+               &//"] doesn't match the previous rows.")
+          ! undo the pushes
+          call lua_pop(l,i)
+       end if
+
+       table_=[table_,ti]
+       table = reshape(table_,[i,m])
+
+    end do
+
+    call lua_pop(l,n)
+
+    if(present(error)) error = FPDE_STATUS_OK
 
   end subroutine flu_get_array2d_real
 
