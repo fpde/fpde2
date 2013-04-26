@@ -14,7 +14,7 @@ module class_derivator_g1d
   use class_coordinates
   use class_coordinates_c1d
 
-  use class_named_vector_user_
+  use class_named_vector_user
   use class_named_vector_f
 
   use class_mesh1d

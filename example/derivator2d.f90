@@ -1,6 +1,6 @@
 module init
-  use class_named_vector_user_
-  use class_icicles_user_
+  use class_named_vector_user
+  use class_icicles_user
   use class_named_vector_f
 
 contains
@@ -99,18 +99,15 @@ program derivator_test
   use class_icicles_
   use class_icicles_implementation
 
-  use class_named_vector_user_
-  use class_named_vector_implementation_
+  use class_named_vector_user
+  use class_named_vector_implementation
   use class_named_vector_f_implementation_ghost
 
-  use class_generic_function
   use class_generic_function_fortran
 
   class(derivator), pointer :: der
-  class(generic_function), pointer :: initialization, boundary_update
   class(icicles), pointer :: ic
   class(named_vector_user), pointer :: x, y, g, f
-  type(mesh2d_sfd5pt), pointer :: m2d
   real, pointer :: u(:)
   integer :: n(2), len
 
@@ -119,18 +116,12 @@ program derivator_test
   ! temporary variable, needed due to ifort bug
   len      = product(n)
 
-  ! create generic_functions
-  initialization  => generic_function_fortran(initialization_f)
-  boundary_update => generic_function_fortran(boundary_update_f)
-
   ! create named_vectors to be used as spatial variables
   x => named_vector_implementation("x",len)
   y => named_vector_implementation("y",len)
 
-  ! create mesh (will be replaced by a factory in derivator)
-  m2d => mesh2d_sfd5pt()
   ! create 2d derivator using ghost points
-  der => derivator_g2d( x, y, n, m = m2d )
+  der => derivator_g2d( x, y, n, m = mesh2d_sfd5pt() )
 
   ! create function to be differentiated
   !
@@ -142,7 +133,7 @@ program derivator_test
        name = "f",&
        d = der,&
        btypes = [character(len=10)::"neumann", "dirichlet", "neumann", "dirichlet"],&
-       bbox_update = boundary_update)
+       bbox_update = generic_function_fortran(boundary_update_f))
 
   ! create a named_vector to store the result of differentiation
   g => named_vector_implementation("g",len)
@@ -150,7 +141,8 @@ program derivator_test
   ! create icicles
   ! init is the generic_function used to set the initial values of
   ! x,y,f and g
-  ic => icicles_implementation( init = initialization )
+  ic => icicles_implementation(&
+       init = generic_function_fortran(initialization_f) )
 
   ! add all the named_vectors
   call ic%add(f)
@@ -166,10 +158,6 @@ program derivator_test
 
   ! initialize values of spatial variables added to der, x and y
   call der%initialize_x()
-  ! equivalent to
-  ! call initialization%call(ic)
-  ! or
-  ! call initialization_f(ic)
   call ic%initialize()
 
   ! print the states of all named_vectors

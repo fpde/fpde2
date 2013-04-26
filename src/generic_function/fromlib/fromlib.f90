@@ -8,9 +8,9 @@
 !!
 !!
 
-module class_icicles_user_pointer_
+module class_icicles_userpointer
 
-  use class_icicles_user_
+  use class_icicles_user
 
   private
 
@@ -44,7 +44,7 @@ contains
   end function val
 
 
-end module class_icicles_user_pointer_
+end module class_icicles_userpointer
 
 
 module class_generic_function_from_object_interfaces
@@ -62,7 +62,7 @@ end module class_generic_function_from_object_interfaces
 
 module class_generic_function_from_object
 
-  use class_icicles_user_
+  use class_icicles_user
   use flu_module
   use flu_get_module
   use class_generic_function
@@ -170,7 +170,7 @@ contains
 
 
   subroutine call(this, solver, error)
-    use class_icicles_user_pointer_
+    use class_icicles_userpointer
     class(generic_function_from_object) :: this
     class(icicles_user), target :: solver
     integer, optional, intent(out) :: error

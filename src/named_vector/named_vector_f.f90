@@ -1,10 +1,10 @@
 module class_named_vector_f
 
   use class_coordinates
-  use class_icicles_user_
+  use class_icicles_user
   use class_bbox_user
-  use class_named_vector_user_
-  use class_named_vector_implementation_
+  use class_named_vector_user
+  use class_named_vector_implementation
 
   private
 

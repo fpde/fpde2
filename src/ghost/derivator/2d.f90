@@ -13,7 +13,7 @@ module class_derivator_g2d
   use ghost_boundary_factory
 
   use class_named_vector_f
-  use class_named_vector_user_
+  use class_named_vector_user
 
   use class_mesh2d
 
@@ -131,6 +131,9 @@ contains
   end subroutine dx
 
 
+  !> Fills the vectors x and y with particular variables based on the
+  !! mesh size returned by nx()
+  !!
   subroutine initialize_x(self)
     class(derivator_g2d) :: self
 

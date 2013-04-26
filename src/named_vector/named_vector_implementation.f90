@@ -1,8 +1,8 @@
-module class_named_vector_implementation_
+module class_named_vector_implementation
 
-  use class_named_vector_
+  use class_named_vector
   use class_generic_function
-  use class_icicles_user_
+  use class_icicles_user
 
   private
 
@@ -90,4 +90,4 @@ contains
   end subroutine point
 
 
-end module class_named_vector_implementation_
+end module class_named_vector_implementation

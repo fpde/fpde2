@@ -1,7 +1,7 @@
 module class_generic_function_fortran
 
   use class_generic_function
-  use class_icicles_user_
+  use class_icicles_user
   use constants_module
 
   private

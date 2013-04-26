@@ -1,7 +1,7 @@
-module class_icicles_
+module class_icicles
 
-  use class_icicles_user_
-  use class_named_vector_user_
+  use class_icicles_user
+  use class_named_vector_user
 
   private
 
@@ -83,4 +83,4 @@ module class_icicles_
 
   end interface
 
-end module class_icicles_
+end module class_icicles

@@ -112,13 +112,13 @@ contains
     nx = n(1)
     ny = n(2)
 
-    call realloc_r2lu(self%f,  [1-gpx,1-gpy], [nx+gpx,ny+gpy])
-    call realloc_r2lu(self%x,  [1-gpx,1-gpy], [nx+gpx,ny+gpy])
-    call realloc_r2lu(self%y,  [1-gpx,1-gpy], [nx+gpx,ny+gpy])
-    call realloc_r2lu(self%df, [1-gpx,1-gpy], [nx+gpx,ny+gpy])
+    call realloc_r2lu(self%f,  1-gpx,1-gpy, nx+gpx,ny+gpy)
+    call realloc_r2lu(self%x,  1-gpx,1-gpy, nx+gpx,ny+gpy)
+    call realloc_r2lu(self%y,  1-gpx,1-gpy, nx+gpx,ny+gpy)
+    call realloc_r2lu(self%df, 1-gpx,1-gpy, nx+gpx,ny+gpy)
 
-    call realloc_r2lu(self%pb, [1, 1-gpx], [np(c_bottom), nx+gpx])
-    call realloc_r2lu(self%pt, [1, 1-gpx], [np(c_top   ), nx+gpx])
+    call realloc_r2lu(self%pb, 1, 1-gpx, np(c_bottom), nx+gpx)
+    call realloc_r2lu(self%pt, 1, 1-gpx, np(c_top   ), nx+gpx)
 
   end subroutine allocate_temp
 
