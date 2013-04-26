@@ -1,9 +1,8 @@
 program event_machine_test
 
   use events
-  use class_icicles
-  use class_icicles_implementation
-  use class_generic_function_dummy
+  use icicless
+  use generic_functions
 
   type(event_machine), pointer :: em
   class(icicles), pointer :: ic
