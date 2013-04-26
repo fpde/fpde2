@@ -17,6 +17,7 @@ module class_action_hello
 
   interface action_hello
      module procedure :: ah_new
+     module procedure :: ah_new_lua
   end interface action_hello
 
 contains
@@ -35,7 +36,31 @@ contains
        r%text = "Hello!"
     end if
 
+    call r%logd("Construction complete, [text]="//r%text)
+
   end function ah_new
+
+
+  function ah_new_lua(l, index, error) result(r)
+    use flu_module
+    use flu_get_module
+
+    type(flu) :: l
+    integer, intent(in) :: index
+    integer, optional, intent(out) :: error
+    type(action_hello), pointer :: r
+
+    character(len=100) :: text
+
+    if(present(error)) error = FPDE_STATUS_OK
+
+    call flu_get_atomic(l, index, "text", char = text)
+
+    r => ah_new(text)
+
+    call r%logd("Read input from Lua!")
+
+  end function ah_new_lua
 
 
   subroutine execute(self, ic, error)
