@@ -28,13 +28,13 @@ contains
   end function et_new
 
 
-  function test(ev, ic, error) result(r)
-    class(event_true), intent(inout) :: ev
+  function test(self, ic, error) result(r)
+    class(event_true), intent(inout) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
     logical :: r
     if(present(error)) error = FPDE_STATUS_OK
-    r = ev%val
+    r = self%val
   end function test
 
 end module class_event_true

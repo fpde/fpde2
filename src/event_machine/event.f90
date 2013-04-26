@@ -14,9 +14,9 @@ module class_event
   end type event
 
   interface
-     function test_i(ev, ic, error) result(r)
+     function test_i(self, ic, error) result(r)
        import event, icicles_user
-       class(event), intent(inout) :: ev
+       class(event), intent(inout) :: self
        class(icicles_user) :: ic
        integer, optional, intent(out) :: error
        logical :: r
@@ -25,15 +25,15 @@ module class_event
 
 contains
 
-  subroutine start(ev, ic, error)
-    class(event), intent(inout) :: ev
+  subroutine start(self, ic, error)
+    class(event), intent(inout) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine start
 
-  subroutine stop(ev, ic, error)
-    class(event), intent(inout) :: ev
+  subroutine stop(self, ic, error)
+    class(event), intent(inout) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK

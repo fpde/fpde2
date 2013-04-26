@@ -26,8 +26,8 @@ contains
     r%op2 => op2
   end function ev_and
 
-  function test(ev, ic, error) result(r)
-    class(event_and) :: ev
+  function test(self, ic, error) result(r)
+    class(event_and) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
 
@@ -36,7 +36,7 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    r = ev%op1%test(ic, err1) .and. ev%op2%test(ic, err2)
+    r = self%op1%test(ic, err1) .and. self%op2%test(ic, err2)
 
     if( err1 /= FPDE_STATUS_OK .or. err2 /= FPDE_STATUS_OK ) then
        if(present(error)) error = FPDE_STATUS_ERROR

@@ -27,8 +27,8 @@ contains
   end function ev_or
 
 
-  function test(ev, ic, error) result(r)
-    class(event_or) :: ev
+  function test(self, ic, error) result(r)
+    class(event_or) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
 
@@ -37,7 +37,7 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    r = ev%op1%test(ic, err1) .or. ev%op2%test(ic, err2)
+    r = self%op1%test(ic, err1) .or. self%op2%test(ic, err2)
 
     if( err1 /= FPDE_STATUS_OK .or. err2 /= FPDE_STATUS_OK ) then
        if(present(error)) error = FPDE_STATUS_ERROR

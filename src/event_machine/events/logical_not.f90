@@ -27,8 +27,8 @@ contains
   end function ev_not
 
 
-  function test(ev, ic, error) result(r)
-    class(event_not) :: ev
+  function test(self, ic, error) result(r)
+    class(event_not) :: self
     class(icicles_user) :: ic
     integer, optional, intent(out) :: error
 
@@ -37,7 +37,7 @@ contains
 
     if(present(error)) error = FPDE_STATUS_OK
 
-    r = .not. ev%op1%test(ic, err1)
+    r = .not. self%op1%test(ic, err1)
 
     if( err1 /= FPDE_STATUS_OK ) then
        if(present(error)) error = FPDE_STATUS_ERROR

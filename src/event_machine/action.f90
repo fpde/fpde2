@@ -25,14 +25,16 @@ module class_action
 
 contains
 
-  subroutine start(ac, error)
+  subroutine start(ac, ic, error)
     class(action) :: ac
+    class(icicles_user) :: ic
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine start
 
-  subroutine stop(ac, error)
+  subroutine stop(ac, ic, error)
     class(action) :: ac
+    class(icicles_user) :: ic
     integer, optional, intent(out) :: error
     if(present(error)) error = FPDE_STATUS_OK
   end subroutine stop
