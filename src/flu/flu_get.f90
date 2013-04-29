@@ -286,7 +286,7 @@ contains
        end if
 
        table_=[table_,ti]
-       table = reshape(table_,[i,m])
+       table = reshape(table_,[m,i])
 
     end do
 
