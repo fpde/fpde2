@@ -110,7 +110,7 @@ contains
     class(named_vector_f) :: f
     integer, intent(in) :: alpha(:,:)
 
-    class(named_vector_user), pointer :: xu, dxu
+    class(named_vector_user), pointer :: xu
     real, pointer :: dfv(:,:), fv(:), xv(:), dfdxv(:)
     real, pointer :: plv(:,:), prv(:,:)
     integer :: i, len
@@ -140,8 +140,7 @@ contains
     do i = 1, size(alpha,2)
        ! this is equivalent to:
        ! dfv => f%dx(alpha(:,i))%vec()
-       dxu => f%dx(alpha(:,i))
-       dfdxv => dxu%vec()
+       dfdxv => f%dx(alpha(:,i))
 
        call self%m_%diff(fv, xv, dfdxv, alpha(1,i))
 

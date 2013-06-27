@@ -50,7 +50,7 @@ module class_named_vector_f
        class(named_vector_f_user) :: self
        integer, intent(in) :: alpha(:)
 
-       class(named_vector_user), pointer :: dx_i
+       real, pointer :: dx_i(:)
      end function dx_i
 
 

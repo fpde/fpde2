@@ -60,7 +60,9 @@ module class_coordinates_c2d
      procedure :: var
      procedure :: dim
      procedure :: length
-     procedure :: vec2d
+     generic   :: vec2d => vec2d_v, vec2d_nv
+     procedure, private :: vec2d_v
+     procedure, private :: vec2d_nv
   end type coordinates_c2d
 
   interface coordinates_c2d
@@ -167,21 +169,42 @@ contains
   end function length
 
 
-  function vec2d(self, v)
+  !> converts a namef vector to its 2d representation
+  !! @param nv named_vector_user
+  !!
+  !! @return 2d vector representing the values of nv on the cartesian
+  !! coordinates
+  function vec2d_nv(self, nv) result(r)
     class(coordinates_c2d) :: self
-    class(named_vector_user), target :: v
+    class(named_vector_user), target :: nv
 
-    real, pointer :: vec2d(:,:), vec1d(:)
+    real, pointer :: r(:,:)
 
-    if( self%length() /= v%length() ) then
+    r => self%vec2d_v(nv%vec())
+
+  end function vec2d_nv
+
+
+  !> converts a namef vector to its 2d representation
+  !! @param v real vector v(:)
+  !!
+  !! @return 2d vector representing the values of nv on the cartesian
+  !! coordinates
+  function vec2d_v(self, v) result(r)
+    class(coordinates_c2d) :: self
+    real, target :: v(:)
+
+    real, pointer :: r(:,:)
+
+    r => null()
+
+    if( size(v) /= self%length() ) then
        call self%loge("vec2d(): Incompatible length of the input vector")
        return
     end if
 
-    vec1d => v%vec()
-    vec2d(1:self%nx_,1:self%ny_) => vec1d
-
-  end function vec2d
+    r(1:self%nx_,1:self%ny_) => v
+  end function vec2d_v
 
 
 end module class_coordinates_c2d

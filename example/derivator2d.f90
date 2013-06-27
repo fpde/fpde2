@@ -45,7 +45,7 @@ contains
     ! f%dx(alpha(:,1))%vec()
     ! we are forced to the use of nvtor() which is defined to have
     ! the same result.
-    g = nvtor(f%dx(alpha))
+    g = f%dx(alpha)
 
   end subroutine initialization_f
 

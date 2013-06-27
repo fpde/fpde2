@@ -114,13 +114,16 @@ contains
 
 
   !! @todo allocate results of dx() on the fly
+  !!
+  !! @todo store the derivatives in a straight-forward 2d array
+  !! instead of in an array of named_vectors?
   function dx(self, alpha)
     use class_named_vector_user
 
     class(named_vector_f_implementation) :: self
     integer, intent(in) :: alpha(:)
 
-    class(named_vector_user), pointer :: dx
+    real, pointer :: dx(:)
 
     type(d_ptr), allocatable :: temp_ptr(:)
     real, pointer :: dxv(:)
@@ -133,7 +136,7 @@ contains
        associate( d => self%dx_ )
          do i = 1, size(d)
             if( all(d(i)%alpha == alpha) ) then
-               dx => d(i)%val
+               dx => d(i)%val%vec()
                return
             end if
          end do
@@ -148,11 +151,12 @@ contains
        dxnv => named_vector_implementation(&
             name = "d",&
             length = length)
-       dx => dxnv
 
        ! allocate space
        allocate(dxv(self%length()))
        call dxnv%point(dxv)
+
+       dx => dxnv%vec()
 
        ! add the vector to the table
        temp_ptr = [self%dx_, d_ptr(alpha = alpha, val = dxnv)]
