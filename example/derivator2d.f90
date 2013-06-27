@@ -9,21 +9,22 @@ contains
     class(icicles_user) :: ic
 
     class(named_vector_f), pointer :: f
-    class(named_vector_user), pointer :: x, y, g
+    class(named_vector_user), pointer :: x, y
+    real, pointer :: g(:)
 
-    integer :: alpha(2,1), n(2)
+    integer :: n(2), alpha(2)
 
     ! alpha is an array of multiindices defined in such way that
     ! alpha(:,i) is the i-th multiindex. Each single multiindex is of
     ! the form [n,m] and describes the derivative $f^(n,m)(x,y)$
     !
     ! at this point we are interested in calculating the f^(1,0)
-    alpha(:,1) = [1,0]
+    alpha = [1,0]
 
     ! extract f from icicles and convert it to named_vector_f
     f => nvtof(ic%get("f"))
     ! extract g from icicles
-    g => ic%get("g")
+    g => ic%getvec("g")
     ! extract both variables from the function (ech function can be
     ! defined on its own set of coordinates/variables)
     x => f%var(1)
@@ -36,7 +37,7 @@ contains
     ! calculate the derivatives for f. It is, in general, possible to
     ! calculate derivatives described by many multiindexes, hence
     ! alpha is of dimension(:,:)
-    call f%dx_update(alpha, ic)
+    call f%dx_update(reshape(alpha, [2,1]), ic)
 
     ! assign the result to g. Unfortunately fortran does not allow to
     ! call a method on a result of function, hence instead of
@@ -44,7 +45,7 @@ contains
     ! f%dx(alpha(:,1))%vec()
     ! we are forced to the use of nvtor() which is defined to have
     ! the same result.
-    g = nvtor(f%dx(alpha(:,1)))
+    g = nvtor(f%dx(alpha))
 
   end subroutine initialization_f
 
@@ -96,7 +97,7 @@ program derivator_test
 
   use class_mesh2d_sfd3pt
 
-  use class_icicles_
+  use class_icicles
   use class_icicles_implementation
 
   use class_named_vector_user
