@@ -31,6 +31,8 @@ module class_named_vector_f_implementation_ghost
 
   type :: d_ptr
      integer, allocatable :: alpha(:)
+     !! @todo store the derivatives in a straight-forward 2d array
+     !! instead of in an array of named_vectors?
      class(named_vector), pointer :: val => null()
   end type d_ptr
 
@@ -113,10 +115,17 @@ contains
   end function nvf_constructor
 
 
-  !! @todo allocate results of dx() on the fly
+
+  !> Given a generalized index alpha it returns a pointer to a vector
+  !! where spatial derivatives are stored.  If the requested vector
+  !! was not already allocated it allocates it.  The length of vectors
+  !! representing spatial derivatives does not count as the length of
+  !! their owner.
   !!
-  !! @todo store the derivatives in a straight-forward 2d array
-  !! instead of in an array of named_vectors?
+  !! @param alpha
+  !!
+  !! @return pointer to a location where results of spatial derivation
+  !! are stored
   function dx(self, alpha)
     use class_named_vector_user
 
