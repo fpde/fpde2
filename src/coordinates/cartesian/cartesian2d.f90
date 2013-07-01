@@ -38,7 +38,6 @@ module class_coordinates_c2d
   use class_regions
   use class_coordinates_c
   use class_named_vector
-  use class_named_vector_user
   use logger_module
 
   private
@@ -53,7 +52,7 @@ module class_coordinates_c2d
      private
      type(regions) :: bregion_
      integer :: nx_ = 0, ny_ = 0
-     class(named_vector_user), pointer :: x_ => null(), y_ => null()
+     class(named_vector), pointer :: x_ => null(), y_ => null()
    contains
      procedure :: nx
      procedure :: bregion
@@ -81,7 +80,7 @@ contains
 
 
   function c2d_new(x, y, n) result(r)
-    class(named_vector_user), target, intent(in) :: x, y
+    class(named_vector), target, intent(in) :: x, y
     integer, intent(in) :: n(2)
 
     type(coordinates_c2d), pointer :: r
@@ -140,7 +139,7 @@ contains
     class(coordinates_c2d) :: self
     integer, intent(in) :: n
 
-    class(named_vector_user), pointer :: var
+    class(named_vector), pointer :: var
 
     select case(n)
     case(1)
@@ -170,13 +169,13 @@ contains
 
 
   !> converts a namef vector to its 2d representation
-  !! @param nv named_vector_user
+  !! @param nv named_vector
   !!
   !! @return 2d vector representing the values of nv on the cartesian
   !! coordinates
   function vec2d_nv(self, nv) result(r)
     class(coordinates_c2d) :: self
-    class(named_vector_user), target :: nv
+    class(named_vector), target :: nv
 
     real, pointer :: r(:,:)
 

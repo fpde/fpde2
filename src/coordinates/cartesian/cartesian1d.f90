@@ -3,7 +3,7 @@ module class_coordinates_c1d
   use class_regions
   use class_coordinates_c
   use class_named_vector
-  use class_named_vector_user
+  use class_named_vector
 
   private
 
@@ -11,7 +11,7 @@ module class_coordinates_c1d
      private
      integer :: nx_ = 0
      type(regions) :: bregion_
-     class(named_vector_user), pointer :: x_ => null()
+     class(named_vector), pointer :: x_ => null()
    contains
      procedure :: nx
      procedure :: bregion
@@ -27,7 +27,7 @@ module class_coordinates_c1d
 contains
 
   function c1d_new(x) result(r)
-    class(named_vector_user), target :: x
+    class(named_vector), target :: x
     type(coordinates_c1d), pointer :: r
 
     allocate(r)
@@ -62,7 +62,7 @@ contains
   function var(self, n)
     class(coordinates_c1d) :: self
     integer, intent(in) :: n
-    class(named_vector_user), pointer :: var
+    class(named_vector), pointer :: var
 
     select case(n)
     case(1)

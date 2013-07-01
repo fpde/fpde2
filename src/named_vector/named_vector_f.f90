@@ -1,163 +1,172 @@
+!>
+!! @file   named_vector_f.f90
+!! @author Pawel Biernat <pawel.biernat@gmail.com>
+!! @date   Fri Nov  2 16:44:18 2012
+!!
+!! @brief
+!!
 module class_named_vector_f
 
+  use class_named_vector
+
   use class_coordinates
-  use class_icicles_user
-  use class_bbox_user
-  use class_named_vector_user
-  use class_named_vector_implementation
 
   private
 
-  type, public, abstract, extends(named_vector_implementation)&
-       :: named_vector_f_user
+
+  !> this structure represents a boundary conditions for this function
+  !! @todo shouldn't this structure be moved to icicles?
+  type, public :: boundary_data
+     !> type of the boundary condition (e.g. "dirichlet")
+     character(len=:), allocatable  :: btype
+     !> values of the parameters shape(params)=[length,params_number]
+     real, allocatable :: params(:,:)
+  end type boundary_data
+
+
+  type :: d_ptr
+     integer, allocatable :: alpha(:)
+     !! @todo store the derivatives in a straight-forward 2d array
+     !! instead of in an array of named_vectors?
+     class(named_vector), pointer :: val => null()
+  end type d_ptr
+
+
+  type, public, extends(named_vector) :: named_vector_f
      private
+     ! bdata is made public intentionally, its compontents
+     ! (params(:,:)) will be reallocated by icicles
+     type(boundary_data), allocatable, public :: bdata(:)
+     type(d_ptr), allocatable     :: dx_(:)
+     class(named_vector), pointer :: dt_    => null()
+     class(coordinates), pointer  :: coord  => null()
    contains
-     procedure(dx_i), deferred :: dx
-     procedure(dt_i), deferred :: dt
-     procedure(dx_update_i), deferred :: dx_update
-     procedure(c_i), deferred  :: c
-     procedure(bbox_nparam_i), deferred  :: bbox_nparam
-     procedure(bbox_param_i), deferred   :: bbox_param
-
-     ! the following functions combine some commonly used methods
-     ! together for easier usage
-     procedure :: bbox_param_set
-     procedure :: var
-  end type named_vector_f_user
-
-
-  type, public, abstract, extends(named_vector_f_user) :: named_vector_f
-     private
-   contains
-     ! procedure(bbox_update_i ), deferred :: bbox_update
-     procedure(bbox_i ), deferred :: bbox
+     procedure :: coordinates => get_coordinates
+     procedure :: dx
+     procedure :: dt
   end type named_vector_f
 
 
-  interface
-
-     function b_i(self, id, param)
-       import named_vector_f_user, named_vector_user
-       class(named_vector_f_user) :: self
-       integer, intent(in) :: id, param
-
-       class(named_vector_user), pointer :: b_i
-     end function b_i
-
-
-     function dx_i(self, alpha)
-       import named_vector_f_user, named_vector_user
-       class(named_vector_f_user) :: self
-       integer, intent(in) :: alpha(:)
-
-       real, pointer :: dx_i(:)
-     end function dx_i
-
-
-     subroutine dx_update_i(self, alpha, ic)
-       import named_vector_f_user, icicles_user
-       class(named_vector_f_user) :: self
-       integer, intent(in) :: alpha(:,:)
-       class(icicles_user), intent(in) :: ic
-     end subroutine dx_update_i
-
-
-     function dt_i(self)
-       import named_vector_f_user, named_vector_user
-       class(named_vector_f_user) :: self
-
-       class(named_vector_user), pointer :: dt_i
-     end function dt_i
-
-
-     function c_i(self)
-       import named_vector_f_user, coordinates
-       class(named_vector_f_user), intent(in), target :: self
-       class(coordinates), pointer :: c_i
-     end function c_i
-
-
-     function bbox_param_i(self, id, param) result(r)
-       import named_vector_f_user, named_vector_user
-       class(named_vector_f_user) :: self
-       integer, intent(in) :: id, param
-       class(named_vector_user), pointer :: r
-     end function bbox_param_i
-
-
-     function bbox_nparam_i(self, id) result(r)
-       import named_vector_f_user
-       class(named_vector_f_user) :: self
-       integer, intent(in) :: id
-       integer :: r
-     end function bbox_nparam_i
-
-
-     subroutine bbox_update_i(self, ic)
-       import named_vector_f, icicles_user
-       class(named_vector_f) :: self
-       class(icicles_user), target :: ic
-     end subroutine bbox_update_i
-
-
-     function bbox_i(self)
-       import named_vector_f, bbox_user
-       class(named_vector_f) :: self
-       class(bbox_user), pointer :: bbox_i
-     end function bbox_i
-
-  end interface
-
-  public :: nvtof
+  interface named_vector_f
+     module procedure :: nvf_constructor
+  end interface named_vector_f
 
 contains
 
-  subroutine bbox_param_set(self, id, param, v)
-    class(named_vector_f_user) :: self
-    integer, intent(in) :: id, param
-    real, intent(in) :: v(:)
+  function nvf_constructor&
+       (name, coord, btype) result(r)
+    character(len=*), intent(in)                :: name
+    class(coordinates), intent(in), target      :: coord
+    character(len=*), intent(in)                :: btype(:)
 
-    class(named_vector_user), pointer :: b
-    class(coordinates), pointer :: co
+    type(named_vector_f), pointer :: r
 
-    b => self%bbox_param(id,param)
-    co => self%c()
-    b = v(co%bregion(id))
+    integer :: i
 
-  end subroutine bbox_param_set
+    allocate(r)
 
-
-  function var(self, n) result(r)
-    class(named_vector_f_user) :: self
-    integer, intent(in) :: n
-
-    class(named_vector_user), pointer :: r
-
-    class(coordinates), pointer :: co
-
-    r => null()
-
-    co => self%c()
-
-    if( .not. associated(co) ) return
-
-    r => co%var(n)
-  end function var
+    r%name  =  name
+    r%coord => coord
 
 
-  function nvtof(nv) result(r)
-    class(named_vector_user), target, intent(in) :: nv
-    class(named_vector_f), pointer :: r
+    allocate(r%bdata(size(btype)))
 
-    r => null()
+    ! we do not allocate the params array here but in the
+    ! icicles.  It's because we don't know yet how many parameters are
+    ! required by each boundary type.
 
-    select type(nv)
-    class is(named_vector_f)
-       r => nv
-    class default
-       call nv%loge("Conversion to named_vector_f failed due to incomp&
-            &atible type")
-    end select
-  end function nvtof
+    ! set the boundary types
+    do i = 1, size(btype)
+       r%bdata(i)%btype = btype(i)
+    end do
+
+
+    ! initialize parent
+    r%named_vector = named_vector(&
+         name = name,&
+         length = coord%length())
+
+  end function nvf_constructor
+
+
+
+  !> Given a generalized index alpha it returns a pointer to a vector
+  !! where spatial derivatives are stored.  If the requested vector
+  !! was not already allocated it allocates it.  The length of vectors
+  !! representing spatial derivatives does not count as the length of
+  !! their owner.
+  !!
+  !! @param alpha
+  !!
+  !! @return pointer to a location where results of spatial derivation
+  !! are stored
+  function dx(self, alpha)
+    class(named_vector_f) :: self
+    integer, intent(in) :: alpha(:)
+
+    real, pointer :: dx(:)
+
+    type(d_ptr), allocatable :: temp_ptr(:)
+    real, pointer :: dxv(:)
+    class(named_vector), pointer :: dxnv
+    integer :: i, length
+
+    dx => null()
+
+    if( allocated(self%dx_) ) then
+       associate( d => self%dx_ )
+         do i = 1, size(d)
+            if( all(d(i)%alpha == alpha) ) then
+               dx => d(i)%val%vec()
+               return
+            end if
+         end do
+       end associate
+    else
+       allocate(self%dx_(0))
+    end if
+
+    if( .not. associated(dx) ) then
+       ! generate new vector
+       length = self%length()
+       dxnv => named_vector(&
+            name = "d",&
+            length = length)
+
+       ! allocate space
+       allocate(dxv(self%length()))
+       call dxnv%point(dxv)
+
+       dx => dxnv%vec()
+
+       ! add the vector to the table
+       temp_ptr = [self%dx_, d_ptr(alpha = alpha, val = dxnv)]
+       self%dx_ = temp_ptr
+    end if
+
+  end function dx
+
+
+  !! @todo allocate dt_ on the fly?
+  function dt(self)
+    class(named_vector_f) :: self
+
+    real, pointer :: dt(:)
+
+    if(.not. associated(self%dt_)) then
+       self%dt_ => named_vector("dt", length = self%length())
+    end if
+
+    dt => self%dt_%vec()
+  end function dt
+
+
+  function get_coordinates(self)
+    class(named_vector_f), intent(in), target :: self
+
+    class(coordinates), pointer :: get_coordinates
+    get_coordinates => self%coord
+  end function get_coordinates
+
 
 end module class_named_vector_f

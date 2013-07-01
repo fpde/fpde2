@@ -1,11 +1,11 @@
 module class_boundary_ghost
 
-  use class_boundary
+  use class_platonic
   use constants_module
 
   private
 
-  type, public, abstract, extends(boundary) :: boundary_ghost
+  type, public, abstract, extends(platonic) :: boundary_ghost
      private
    contains
      procedure(gen_val), deferred :: generate_values
@@ -23,8 +23,6 @@ module class_boundary_ghost
      end subroutine gen_val
   end interface
 
-  public :: toghost
-
 contains
 
   function p_names(self)
@@ -32,21 +30,5 @@ contains
     character(len=:), allocatable :: p_names(:)
     allocate( character(len=0) :: p_names(0) )
   end function p_names
-
-
-  function toghost(b) result(r)
-    class(boundary), target :: b
-
-    class(boundary_ghost), pointer :: r
-
-    select type(b)
-    class is(boundary_ghost)
-       r => b
-    class default
-       call b%loge("toghost(): Unable to convert to boundary_ghost")
-    end select
-
-  end function toghost
-
 
 end module class_boundary_ghost

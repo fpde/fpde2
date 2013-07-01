@@ -1,10 +1,10 @@
 module class_named_vector_t
 
-  use class_named_vector_implementation
+  use class_named_vector
 
   private
 
-  type, public, extends(named_vector_implementation) :: named_vector_t
+  type, public, extends(named_vector) :: named_vector_t
      private
      real :: tmax_ = 1.0
    contains
@@ -27,8 +27,9 @@ contains
 
     allocate(r)
 
-    r%named_vector_implementation = named_vector_implementation(&
-         name = name, length = 1)
+    r%named_vector = named_vector(&
+         & name = name,&
+         & length = 1)
 
     r%tmax_ = tmax
   end function nvt_constructor

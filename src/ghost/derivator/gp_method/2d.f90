@@ -40,11 +40,12 @@
 !!
 module class_g2d_methods
 
+  use class_named_vector_f
   use class_coordinates_c2d
-  use class_bbox_user
   use class_boundary_ghost
   use class_mesh2d
-  use class_boundary_ghost
+
+  use ghost_boundary_selector
 
   use helper_module
 
@@ -78,7 +79,7 @@ contains
     real, intent(in), dimension(:,:) :: x, y, f
     real, intent(out) :: df(:,:)
     class(mesh2d), intent(in) :: m
-    class(bbox_user), intent(in) :: b
+    class(boundary_data), intent(in) :: b(:)
     integer, intent(in) :: alpha(2)
 
     integer, allocatable :: gp(:)
@@ -90,7 +91,7 @@ contains
     end do
 
     do i = 1, 4
-       np(i) = b%num_param(i)
+       np(i) = size(b(i)%params,2)
     end do
 
     call self%allocate_temp(gp, n, np)
@@ -168,10 +169,10 @@ contains
   end subroutine fill_xy
 
 
-  subroutine fill_f(self, x, y, f, box, gp)
+  subroutine fill_f(self, x, y, f, b, gp)
     class(g2d_methods) :: self
     real, intent(in), dimension(:,:) :: x, y, f
-    class(bbox_user) :: box
+    class(boundary_data), intent(in) :: b(:)
     integer, intent(in) :: gp(2)
 
     integer :: nx, ny
@@ -180,29 +181,29 @@ contains
     ny  = size(x,2)
 
     self%f(1:nx, 1:ny) = f
-    call self%fill_f_LR(x, y, f, box, gp)
-    call self%fill_f_TB(x, y, f, box, gp)
+    call self%fill_f_LR(x, y, f, b, gp)
+    call self%fill_f_TB(x, y, f, b, gp)
 
   end subroutine fill_f
 
 
   !> This subroutine fills in the areas L and R
   !!
-  subroutine fill_f_LR(self, x, y, f, box, gp)
+  subroutine fill_f_LR(self, x, y, f, b, gp)
     class(g2d_methods) :: self
     real, intent(in), dimension(:,:) :: x, y, f
-    class(bbox_user), intent(in) :: box
+    class(boundary_data), intent(in), target :: b(:)
     integer, intent(in) :: gp(2)
 
     class(boundary_ghost), pointer :: l, r
     real, pointer, dimension(:,:) :: pl, pr
     integer :: gpx, gpy, nx, ny, i
 
-    l => toghost(box%boundary(c_left))
-    r => toghost(box%boundary(c_right))
+    l => ghost_boundary_select(b(c_left )%btype)
+    r => ghost_boundary_select(b(c_right)%btype)
 
-    pl => l%rawp()
-    pr => r%rawp()
+    pl => b(c_left)%params
+    pr => b(c_right)%params
 
     gpx = gp(1)
     gpy = gp(2)
@@ -231,22 +232,22 @@ contains
   subroutine fill_f_TB(self, x, y, f, box, gp)
     class(g2d_methods) :: self
     real, intent(in), dimension(:,:) :: x, y, f
-    class(bbox_user), intent(in) :: box
+    class(boundary_data), intent(in), target :: box(:)
     integer, intent(in) :: gp(2)
 
     class(boundary_ghost), pointer :: l, r, t, b
     real, pointer, dimension(:,:) :: pl, pr, pt, pb
     integer :: gpx, gpy, nx, ny, i
 
-    l => toghost(box%boundary(c_left))
-    r => toghost(box%boundary(c_right))
-    b => toghost(box%boundary(c_bottom))
-    t => toghost(box%boundary(c_top))
+    l => ghost_boundary_select(box(c_left  )%btype)
+    r => ghost_boundary_select(box(c_right )%btype)
+    b => ghost_boundary_select(box(c_bottom)%btype)
+    t => ghost_boundary_select(box(c_top   )%btype)
 
-    pl => l%rawp()
-    pr => r%rawp()
-    pb => b%rawp()
-    pt => t%rawp()
+    pl => box(c_left)%params
+    pr => box(c_right)%params
+    pb => box(c_bottom)%params
+    pt => box(c_top)%params
 
     gpx = gp(1)
     gpy = gp(2)

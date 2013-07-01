@@ -3,7 +3,6 @@ module class_coordinates
   use class_regions
   use class_platonic
   use class_named_vector
-  use class_named_vector_user
 
   private
 
@@ -33,10 +32,10 @@ module class_coordinates
      end function r_i
 
      function v_i(self, n)
-       import coordinates, named_vector_user
+       import coordinates, named_vector
        class(coordinates) :: self
        integer, intent(in) :: n
-       class(named_vector_user), pointer :: v_i
+       class(named_vector), pointer :: v_i
      end function v_i
 
      function d_i(self)

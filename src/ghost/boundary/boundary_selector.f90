@@ -1,4 +1,4 @@
-module ghost_boundary_factory
+module ghost_boundary_selector
 
   use constants_module
   use class_boundary_ghost
@@ -10,33 +10,32 @@ module ghost_boundary_factory
   character(len=*), parameter :: nprefix = "Boundary(ghost) "
   character(len=*), parameter :: tprefix = "ghost_"
 
-  public :: ghost_boundary_new
+  type(boundary_ghost_dirichlet), target, save :: dirichlet
+  type(boundary_ghost_neumann),   target, save :: neumann
+
+  public :: ghost_boundary_select
 
 contains
 
-  function ghost_boundary_new(id, error) result(s)
-    class(boundary_ghost), pointer :: s
+  function ghost_boundary_select(id, error) result(s)
+    character(len=*), intent(in) :: id
     integer, optional, intent(out) :: error
-    character(len=*) :: id
+
+    class(boundary_ghost), pointer :: s
 
     if(present(error)) error = FPDE_STATUS_OK
 
     select case(trim(id))
     case( "dirichlet" )
-       allocate( boundary_ghost_dirichlet :: s )
+       s => dirichlet
     case( "neumann" )
-       allocate( boundary_ghost_neumann :: s )
+       s => neumann
     case default
        if(present(error)) error = FPDE_STATUS_ERROR
        nullify( s )
        return
     end select
 
-    if( associated(s) ) then
-       s%name = nprefix // id
-       s%type = tprefix // id
-    end if
+  end function ghost_boundary_select
 
-  end function ghost_boundary_new
-
-end module ghost_boundary_factory
+end module ghost_boundary_selector
