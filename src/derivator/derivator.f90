@@ -11,6 +11,10 @@ module class_derivator
      procedure(dx_i), deferred :: dx
   end type derivator
 
+  type, public :: vecptr
+     real, pointer :: val(:) => null()
+  end type vecptr
+
 
   abstract interface
 
@@ -20,11 +24,13 @@ module class_derivator
        class(coordinates), pointer :: coordinates_i
      end function coordinates_i
 
-     subroutine dx_i(self, f, alpha)
-       import derivator, named_vector_f
+     subroutine dx_i(self, f, vars, alpha, coords)
+       import derivator, named_vector_f, vecptr, coordinates
        class(derivator) :: self
        class(named_vector_f), target :: f
-       integer, intent(in) :: alpha(:,:)
+       type(vecptr), intent(in) :: vars(:)
+       integer, intent(in) :: alpha(:)
+       class(coordinates), intent(in), target :: coords
      end subroutine dx_i
 
      subroutine initialize_x_i(self)

@@ -14,9 +14,7 @@ module class_icicles
   type, public, abstract, extends(icicles_user) :: icicles
      private
    contains
-     generic :: add => add_nv, add_coord
-     procedure(add_nv_i),     deferred :: add_nv
-     procedure(add_coord_i), deferred :: add_coord
+     procedure(add_nv_i),     deferred :: add
      procedure(point_i), deferred :: point
      procedure(length_i),  deferred :: length
      procedure(initialize_i), deferred :: initialize
@@ -35,17 +33,6 @@ module class_icicles
        class(icicles) :: self
        class(named_vector), target, intent(in) :: nv
      end subroutine add_nv_i
-
-     !> Adds coordinates to the icicles, it is possible to add the same
-     !! vector several times.
-     !!
-     !! @param nv vector to be added
-     !!
-     subroutine add_coord_i(self, c)
-       import icicles, coordinates
-       class(icicles) :: self
-       class(coordinates), target, intent(in) :: c
-     end subroutine add_coord_i
 
      !> ???
      function test_i(self, nv)

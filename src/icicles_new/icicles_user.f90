@@ -24,19 +24,17 @@ module class_icicles_user
        class(named_vector), pointer :: get_i
      end function get_i
 
-     function d_i(self, fname, alpha, cname)
+     function d_i(self, fname, alpha, vars)
        import icicles_user
        class(icicles_user), intent(in) :: self
-       character(len=*), intent(in) :: fname, cname
+       character(len=*), intent(in) :: fname, vars(:)
        integer, intent(in), target :: alpha(:)
        real, pointer :: d_i(:)
      end function d_i
 
-     function coordinates_i(self, cname) result(r)
+     function coordinates_i(self) result(r)
        import icicles_user, coordinates
        class(icicles_user) :: self
-       character(len=*), intent(in) :: cname
-
        class(coordinates), pointer :: r
      end function coordinates_i
 

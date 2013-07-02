@@ -43,10 +43,13 @@ contains
   end function g2d_new
 
 
-  subroutine dx(self, f, alpha)
+  subroutine dx(self, f, vars, alpha, coords)
+    use class_boundary_ghost
     class(derivator_g2d) :: self
     class(named_vector_f), target :: f
-    integer, intent(in) :: alpha(:,:)
+    type(vecptr), intent(in) :: vars(:)
+    integer, intent(in) :: alpha(:)
+    class(coordinates), intent(in), target :: coords
 
     real, pointer, dimension(:,:) :: x2d, y2d, f2d, df2d
     integer :: i
@@ -67,24 +70,21 @@ contains
     y2d => c2d%vec2d(c2d%var(2))
     f2d => c2d%vec2d(f)
 
-    do i = 1, size(alpha,2)
-       df2d => c2d%vec2d(f%dx(alpha(:,i)))
+    df2d => c2d%vec2d(f%dx(alpha))
 
-       ! calculate the derivatives disregarding boundary conditions
-       call self%m_%diff(f2d, x2d, y2d, df2d, alpha(:,i))
+    ! calculate the derivatives disregarding boundary conditions
+    call self%m_%diff(f2d, x2d, y2d, df2d, alpha)
 
-       ! use the ghost point to overwrite some of the derivatives we
-       ! just calculated
-       call self%g2d_m%update_df(&
-            f     = f2d,&
-            x     = x2d,&
-            y     = y2d,&
-            df    = df2d,&
-            m     = self%m_,&
-            b     = f%bdata,&
-            alpha = alpha(:,i))
-
-    end do
+    ! use the ghost point to overwrite some of the derivatives we
+    ! just calculated
+    call self%g2d_m%update_df(&
+         f     = f2d,&
+         x     = x2d,&
+         y     = y2d,&
+         df    = df2d,&
+         m     = self%m_,&
+         b     = f%bdata,&
+         alpha = alpha)
 
   end subroutine dx
 

@@ -9,7 +9,6 @@ module class_derivator_g1d
   use class_coordinates
   use class_coordinates_c1d
 
-  use class_named_vector
   use class_named_vector_f
 
   use class_mesh1d
@@ -64,17 +63,17 @@ contains
 
 
   ! actual algorithms goes in here
-  subroutine dx(self, f, alpha)
+  subroutine dx(self, f, vars, alpha, coords)
     use class_boundary_ghost
     class(derivator_g1d) :: self
     class(named_vector_f), target :: f
-    integer, intent(in) :: alpha(:,:)
+    type(vecptr), intent(in) :: vars(:)
+    integer, intent(in) :: alpha(:)
+    class(coordinates), intent(in), target :: coords
 
-    class(named_vector), pointer :: xu
     real, pointer :: dfv(:,:), fv(:), xv(:), dfdxv(:)
     integer :: i, length, left, right
 
-    class(coordinates), pointer :: c
     class(coordinates_c1d), pointer :: c1d
     class(boundary_ghost), pointer :: bl, br
 
@@ -82,21 +81,19 @@ contains
     left = 1; right = 2;
 
     ! abort if the rank of the derivative is higher than one
-    if( size(alpha,1) > 1 ) then
+    if( size(alpha) > 1 ) then
        return
     end if
 
-    c => f%coordinates()
-    select type(c)
+    select type(coords)
        class is(coordinates_c1d)
-          c1d => c
+          c1d => coords
        class default
           call self%loge("dx(): Incompatible coordinates")
        return
     end select
 
-    xu => c1d%var(1)
-    xv => xu%vec()
+    xv => vars(1)%val
     fv => f%vec()
 
     ! get the pointers to appropriate algorithms for dealing with
@@ -105,34 +102,30 @@ contains
     br => ghost_boundary_select(f%bdata(right)%btype)
 
     ! extract length
-    length = f%length()
+    length = coords%length()
 
     ! compute all the derivatives
-    !! @todo remove the possibility of calculating several derivatives
-    !! at once?
-    do i = 1, size(alpha,2)
-       dfdxv => f%dx(alpha(:,i))
+    dfdxv => f%dx(alpha)
 
-       call self%m_%diff(fv, xv, dfdxv, alpha(1,i))
+    call self%m_%diff(fv, xv, dfdxv, alpha(1))
 
-       call self%g1d_m%dx(&
-            fv,&
-            xv,&
-            dfdxv,&
-            alpha(1,i),&
-            self%m_,&
-            bl,&
-            f%bdata(left)%params)
+    call self%g1d_m%dx(&
+         fv,&
+         xv,&
+         dfdxv,&
+         alpha(1),&
+         self%m_,&
+         bl,&
+         f%bdata(left)%params)
 
-       call self%g1d_m%dx(&
-            fv(length:1:-1),&
-            xv(length:1:-1),&
-            dfdxv(length:1:-1),&
-            alpha(1,i),&
-            self%m_,&
-            br,&
-            f%bdata(right)%params)
-    end do
+    call self%g1d_m%dx(&
+         fv(length:1:-1),&
+         xv(length:1:-1),&
+         dfdxv(length:1:-1),&
+         alpha(1),&
+         self%m_,&
+         br,&
+         f%bdata(right)%params)
 
   end subroutine dx
 
